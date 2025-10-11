@@ -1,7 +1,3 @@
-
----
-
-````md
 <div align="center">
 
 <h1 align="center">💻 CodeCoach — Plataforma de Retos de Programación</h1>
@@ -109,9 +105,6 @@ CodeCoach/
 ├── tests/              # Casos de prueba y validación
 ├── docs/               # Diagramas y documentación
 └── README.md
-````
-
----
 
 ## 🚧 Estado Actual
 
