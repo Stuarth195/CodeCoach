@@ -132,7 +132,10 @@ CodeCoach/
 
 ### 👨‍💻 Desarrollado por
 
-**Raúl Stuarth Ramírez Villegas** — CE2103 | Instituto Tecnológico de Costa Rica
+**Raúl Stuarth Ramírez Villegas** 
+**David Cordero Zuñiga** 
+**Gok Cheng Liang** 
+— CE2103 | Instituto Tecnológico de Costa Rica
 
 > *“El mejor código no solo resuelve problemas, enseña cómo pensar.”*
 
