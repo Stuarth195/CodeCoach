@@ -132,8 +132,8 @@ CodeCoach/
 
 ### 👨‍💻 Desarrollado por
 
-**Raúl Stuarth Ramírez Villegas** 
-**David Cordero Zuñiga** 
+**Raúl Stuarth Ramírez Villegas** ,
+**David Cordero Zuñiga** ,
 **Gok Cheng Liang** 
 — CE2103 | Instituto Tecnológico de Costa Rica
 
