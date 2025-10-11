@@ -1,7 +1,3 @@
-Perfecto — entendido: el README que querés es **para el proyecto 2: CodeCoach**, no para el mod de Stardew Valley.
-Nada de lo anterior se usará, solo el estilo visual como referencia.
-
-Aquí tenés el README limpio, profesional y estéticamente claro, **listo para pegar en consola o GitHub**, con los estados actuales (`✅ Definido`, `🔖 Pendiente`) y todo en español:
 
 ---
 
@@ -153,4 +149,3 @@ CodeCoach/
 
 ---
 
-¿Querés que te genere una **versión editable en `.md`** para colocar directo en tu repositorio (con emojis, formato y espaciado intactos)?
