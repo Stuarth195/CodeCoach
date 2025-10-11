@@ -96,7 +96,6 @@ El sistema permite al usuario:
 
 ## 🗂️ Estructura Inicial del Repositorio
 
-```bash
 CodeCoach/
 ├── gui/                # Interfaz en Qt
 ├── core/               # Motor de evaluación
@@ -138,7 +137,3 @@ CodeCoach/
 > *“El mejor código no solo resuelve problemas, enseña cómo pensar.”*
 
 </div>
-```
-
----
-
