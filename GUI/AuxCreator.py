@@ -1,10 +1,10 @@
-# AuxCreator.py (versión mejor organizada)
+# AuxCreator.py (versión reorganizada)
 import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QGridLayout, QTabWidget, QTextEdit,
                              QListWidget, QLabel, QPushButton, QSplitter,
                              QFrame, QProgressBar, QStackedWidget)
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, pyqtProperty
 from PyQt5.QtGui import QFont, QPalette, QColor, QIcon, QFontDatabase
 
 # =============================================
@@ -20,6 +20,7 @@ except Exception as e:
 class ModernMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.current_section = None
         self.initUI()
 
     def initUI(self):
@@ -39,18 +40,76 @@ class ModernMainWindow(QMainWindow):
 
         # Crear componentes
         left_sidebar = self.create_left_sidebar()
-        central_area = self.create_central_area()
-        right_sidebar = self.create_right_sidebar()
+        self.central_stacked = self.create_central_stacked()
 
         # Agregar componentes al layout principal
         main_layout.addWidget(left_sidebar)
-        main_layout.addWidget(central_area, 1)
-        main_layout.addWidget(right_sidebar)
+        main_layout.addWidget(self.central_stacked, 1)
 
         # =============================================
         # CONFIGURACIÓN DE ACCIONES - CONECTAR BOTONES
         # =============================================
         self.setup_actions()
+
+        # Mostrar sección por defecto (Editor de Código)
+        self.show_section("Editor")
+
+    def create_central_stacked(self):
+        """Crea el QStackedWidget para manejar las diferentes secciones"""
+        self.stacked_widget = QStackedWidget()
+
+        # Crear todas las secciones
+        self.editor_section = self.create_coding_environment()
+        self.problems_section = self.create_problems_section()
+        self.progress_section = self.create_progress_section()
+        self.ranking_section = self.create_ranking_section()
+        self.settings_section = self.create_settings_section()
+
+        # Agregar secciones al stacked widget
+        self.stacked_widget.addWidget(self.editor_section)  # Índice 0
+        self.stacked_widget.addWidget(self.problems_section)  # Índice 1
+        self.stacked_widget.addWidget(self.progress_section)  # Índice 2
+        self.stacked_widget.addWidget(self.ranking_section)  # Índice 3
+        self.stacked_widget.addWidget(self.settings_section)  # Índice 4
+
+        return self.stacked_widget
+
+    def show_section(self, section_name):
+        """Muestra una sección específica con animación"""
+        section_map = {
+            "Editor": 0,
+            "Problemas": 1,
+            "Mi Progreso": 2,
+            "Ranking": 3,
+            "Ajustes": 4
+        }
+
+        if section_name in section_map:
+            new_index = section_map[section_name]
+            self.animate_section_change(new_index)
+            self.current_section = section_name
+
+    def animate_section_change(self, new_index):
+        """Animación para cambiar entre secciones"""
+        # Animación de desvanecimiento
+        self.animation = QPropertyAnimation(self.stacked_widget, b"windowOpacity")
+        self.animation.setDuration(300)
+        self.animation.setStartValue(1.0)
+        self.animation.setEndValue(0.0)
+        self.animation.finished.connect(lambda: self.complete_section_change(new_index))
+        self.animation.start()
+
+    def complete_section_change(self, new_index):
+        """Completa el cambio de sección después de la animación"""
+        self.stacked_widget.setCurrentIndex(new_index)
+
+        # Animación de aparición
+        self.animation = QPropertyAnimation(self.stacked_widget, b"windowOpacity")
+        self.animation.setDuration(300)
+        self.animation.setStartValue(0.0)
+        self.animation.setEndValue(1.0)
+        self.animation.setEasingCurve(QEasingCurve.OutCubic)
+        self.animation.start()
 
     def setup_actions(self):
         """CONECTA LOS BOTONES A SUS MÉTODOS CORRESPONDIENTES"""
@@ -87,9 +146,10 @@ class ModernMainWindow(QMainWindow):
         # =============================================
         # CONEXIÓN DE BOTONES DE NAVEGACIÓN
         # =============================================
-        if hasattr(self.actions, 'open_section'):
+        # Conectar botones de navegación para cambiar secciones
+        if hasattr(self, 'nav_buttons'):
             for name, btn in self.nav_buttons.items():
-                btn.clicked.connect(lambda checked=False, n=name: self.actions.open_section(n))
+                btn.clicked.connect(lambda checked=False, n=name: self.show_section(n))
 
     def create_dummy_actions(self):
         """Crea acciones placeholder si no hay módulo de lógica"""
@@ -98,19 +158,18 @@ class ModernMainWindow(QMainWindow):
             def __init__(self, win):
                 self.win = win
 
-            def run_code(self): print(">>> run_code: handler no implementado")
+            def run_code(self): print(">>> Botón 'Ejecutar' presionado")
 
-            def send_code(self): print(">>> send_code: handler no implementado")
+            def send_code(self): print(">>> Botón 'Enviar' presionado")
 
-            def reset_editor(self): print(">>> reset_editor: handler no implementado")
+            def reset_editor(self): print(">>> Botón 'Reiniciar' presionado")
 
-            def save_code(self): print(">>> save_code: handler no implementado")
+            def save_code(self): print(">>> Botón 'Guardar' presionado")
 
-            def open_section(self, name): print(f">>> open_section: {name} (no implementado)")
+            def open_section(self, name): print(f">>> Navegar a: {name}")
 
         return _DummyActions(self)
 
-    # ... (el resto de los métodos create_left_sidebar, create_central_area, etc. se mantienen igual)
     def setup_fonts(self):
         """Configura fuentes personalizadas para la aplicación"""
         QFontDatabase.addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf")
@@ -128,7 +187,6 @@ class ModernMainWindow(QMainWindow):
 
     def create_left_sidebar(self):
         """Crea la barra lateral izquierda con navegación"""
-        # ... (implementación existente)
         sidebar = QFrame()
         sidebar.setFixedWidth(280)
         sidebar.setStyleSheet("""
@@ -150,6 +208,7 @@ class ModernMainWindow(QMainWindow):
 
         # Navegación principal
         nav_buttons = [
+            ("Editor", "💻"),
             ("Problemas", "📋"),
             ("Mi Progreso", "📊"),
             ("Ranking", "🏆"),
@@ -166,9 +225,13 @@ class ModernMainWindow(QMainWindow):
                     padding-left: 15px;
                     font-size: 14px;
                     background-color: #2a2a35;
+                    color: #ccc;
                 }
                 QPushButton:hover {
                     background-color: #3a3a45;
+                }
+                QPushButton:pressed {
+                    background-color: #4a4a55;
                 }
             """)
             layout.addWidget(btn)
@@ -180,10 +243,10 @@ class ModernMainWindow(QMainWindow):
         sep.setStyleSheet("color: #444;")
         layout.addWidget(sep)
 
-        # Sección de problemas
-        problems_label = QLabel("PROBLEMAS")
-        problems_label.setStyleSheet("color: #ccc; font-weight: bold;")
-        layout.addWidget(problems_label)
+        # Sección de problemas (solo visible en la sección de problemas)
+        self.problems_label = QLabel("PROBLEMAS")
+        self.problems_label.setStyleSheet("color: #ccc; font-weight: bold;")
+        layout.addWidget(self.problems_label)
 
         self.problems_list = QListWidget()
         self.problems_list.setStyleSheet("""
@@ -206,57 +269,6 @@ class ModernMainWindow(QMainWindow):
         layout.addWidget(self.problems_list)
 
         return sidebar
-
-    def create_central_area(self):
-        """Crea la parte central con pestañas y contenido principal"""
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        self.main_tabs = QTabWidget()
-        self.main_tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #444;
-                border-radius: 6px;
-            }
-        """)
-
-        # Pestaña de programación
-        coding_tab = self.create_coding_environment()
-        self.main_tabs.addTab(coding_tab, "💻 Editor de Código")
-
-        # Pestaña de problemas
-        problems_tab = QWidget()
-        p_layout = QVBoxLayout(problems_tab)
-        p_layout.setContentsMargins(12, 12, 12, 12)
-
-        problem_title = QLabel("Two Sum")
-        problem_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #eee;")
-        p_layout.addWidget(problem_title)
-
-        problem_desc = QLabel("Dada una lista de enteros, encuentra dos números que sumen un objetivo.")
-        problem_desc.setWordWrap(True)
-        problem_desc.setStyleSheet("color: #ddd;")
-        p_layout.addWidget(problem_desc)
-
-        self.main_tabs.addTab(problems_tab, "📋 Problema")
-        layout.addWidget(self.main_tabs)
-        return container
-
-    def _button_style(self, color):
-        """Devuelve stylesheet para botones con color dado."""
-        return f"""
-            QPushButton {{
-                background-color: {color};
-                color: white;
-                font-weight: bold;
-                border-radius: 4px;
-                padding: 5px 15px;
-            }}
-            QPushButton:hover {{
-                background-color: {color}dd;
-            }}
-        """
 
     def create_coding_environment(self):
         """Crea el entorno de programación con editor y terminal"""
@@ -365,92 +377,253 @@ class ModernMainWindow(QMainWindow):
 
         return container
 
-    def create_right_sidebar(self):
-        """Crea la barra lateral derecha con estadísticas y ranking"""
-        # ... (implementación existente)
-        right = QWidget()
-        right.setFixedWidth(320)
-        right.setStyleSheet("background-color: transparent;")
-        layout = QVBoxLayout(right)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+    def create_problems_section(self):
+        """Crea la sección de problemas"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(20, 20, 20, 20)
 
-        # Tarjeta de estadísticas
-        stats_card = QFrame()
-        stats_card.setStyleSheet("""
+        # Título
+        title = QLabel("📋 Problemas de Práctica")
+        title.setStyleSheet("font-size: 28px; font-weight: bold; color: #fff; margin-bottom: 20px;")
+        layout.addWidget(title)
+
+        # Descripción
+        desc = QLabel("Selecciona un problema de la lista en la barra lateral para comenzar a resolverlo.")
+        desc.setStyleSheet("font-size: 16px; color: #ccc; margin-bottom: 30px;")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+
+        # Contenedor de problema seleccionado
+        problem_frame = QFrame()
+        problem_frame.setStyleSheet("""
             QFrame {
                 background-color: #252530;
                 border-radius: 8px;
                 border: 1px solid #444;
+                padding: 20px;
             }
         """)
-        stats_layout = QVBoxLayout(stats_card)
-        stats_layout.setContentsMargins(12, 12, 12, 12)
-        stats_layout.setSpacing(8)
+        problem_layout = QVBoxLayout(problem_frame)
 
-        title = QLabel("Resumen")
-        title.setStyleSheet("font-weight: bold; color: #fff;")
-        stats_layout.addWidget(title)
+        problem_title = QLabel("Two Sum")
+        problem_title.setStyleSheet("font-size: 24px; font-weight: bold; color: #fff; margin-bottom: 15px;")
+        problem_layout.addWidget(problem_title)
 
-        stats_grid = QGridLayout()
-        stats_grid.setSpacing(8)
+        problem_desc = QLabel(
+            "Dada una lista de enteros y un objetivo, encuentra dos números que sumen el objetivo.\n\n"
+            "Puedes asumir que cada entrada tiene exactamente una solución, y no puedes usar el mismo elemento dos veces.\n\n"
+            "Ejemplo:\n"
+            "Input: nums = [2,7,11,15], target = 9\n"
+            "Output: [0,1]\n"
+            "Explicación: nums[0] + nums[1] = 2 + 7 = 9"
+        )
+        problem_desc.setStyleSheet("font-size: 14px; color: #ddd; line-height: 1.5;")
+        problem_desc.setWordWrap(True)
+        problem_layout.addWidget(problem_desc)
 
-        sample_stats = [
-            ("120", "Problemas resueltos", "#27ae60"),
-            ("45", "Hoy", "#f39c12"),
-            ("12", "Racha", "#2980b9"),
-            ("350", "Puntos", "#9b59b6")
+        layout.addWidget(problem_frame)
+        layout.addStretch()
+
+        return container
+
+    def create_progress_section(self):
+        """Crea la sección de Mi Progreso"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # Título
+        title = QLabel("📊 Mi Progreso")
+        title.setStyleSheet("font-size: 28px; font-weight: bold; color: #fff; margin-bottom: 20px;")
+        layout.addWidget(title)
+
+        # Estadísticas
+        stats_frame = QFrame()
+        stats_frame.setStyleSheet("""
+            QFrame {
+                background-color: #252530;
+                border-radius: 8px;
+                border: 1px solid #444;
+                padding: 20px;
+            }
+        """)
+        stats_layout = QGridLayout(stats_frame)
+
+        stats_data = [
+            ("120", "Problemas Resueltos", "#27ae60"),
+            ("45", "Resueltos Hoy", "#f39c12"),
+            ("15", "Racha Actual", "#2980b9"),
+            ("350", "Puntos Totales", "#9b59b6"),
+            ("85%", "Tasa de Éxito", "#e74c3c"),
+            ("25", "Días Consecutivos", "#1abc9c")
         ]
 
-        for i, (value, label, color) in enumerate(sample_stats):
+        for i, (value, label, color) in enumerate(stats_data):
             stat_widget = QFrame()
-            stat_widget.setStyleSheet("background-color: #1a1a1f; border-radius: 6px;")
+            stat_widget.setStyleSheet("background-color: #1a1a1f; border-radius: 6px; padding: 15px;")
             stat_layout = QVBoxLayout(stat_widget)
+
             value_label = QLabel(value)
-            value_label.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {color};")
+            value_label.setStyleSheet(f"font-size: 24px; font-weight: bold; color: {color};")
+            value_label.setAlignment(Qt.AlignCenter)
+
             label_label = QLabel(label)
-            label_label.setStyleSheet("font-size: 11px; color: #ccc;")
+            label_label.setStyleSheet("font-size: 12px; color: #ccc;")
+            label_label.setAlignment(Qt.AlignCenter)
+
             stat_layout.addWidget(value_label)
             stat_layout.addWidget(label_label)
-            stats_grid.addWidget(stat_widget, i // 2, i % 2)
 
-        stats_layout.addLayout(stats_grid)
-        layout.addWidget(stats_card)
+            stats_layout.addWidget(stat_widget, i // 3, i % 3)
 
-        # Tarjeta de ranking
-        rank_card = QFrame()
-        rank_card.setStyleSheet("""
+        layout.addWidget(stats_frame)
+        layout.addStretch()
+
+        return container
+
+    def create_ranking_section(self):
+        """Crea la sección de Ranking"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # Título
+        title = QLabel("🏆 Ranking Global")
+        title.setStyleSheet("font-size: 28px; font-weight: bold; color: #fff; margin-bottom: 20px;")
+        layout.addWidget(title)
+
+        # Tabla de ranking
+        ranking_frame = QFrame()
+        ranking_frame.setStyleSheet("""
             QFrame {
                 background-color: #252530;
                 border-radius: 8px;
                 border: 1px solid #444;
+                padding: 20px;
             }
         """)
-        rank_layout = QVBoxLayout(rank_card)
-        rank_layout.setContentsMargins(12, 12, 12, 12)
+        ranking_layout = QVBoxLayout(ranking_frame)
 
-        rtitle = QLabel("Ranking")
-        rtitle.setStyleSheet("font-weight: bold; color: #fff;")
-        rank_layout.addWidget(rtitle)
+        # Crear grid layout para alinear las columnas
+        grid_layout = QGridLayout()
+        grid_layout.setHorizontalSpacing(20)
+        grid_layout.setVerticalSpacing(10)
 
-        rank_list = QListWidget()
-        rank_list.setStyleSheet("""
-            QListWidget {
-                background-color: #1a1a1f;
-                color: #ddd;
-                border: none;
-                padding: 6px;
+        # Encabezados
+        headers = ["Posición", "Usuario", "Puntaje", "Problemas"]
+        for col, header in enumerate(headers):
+            header_label = QLabel(header)
+            header_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #f1c40f; padding: 10px;")
+            grid_layout.addWidget(header_label, 0, col)  # Fila 0 para encabezados
+
+        # Datos de ranking (ejemplo)
+        ranking_data = [
+            ("🥇 1", "CodeMaster", "1250", "45"),
+            ("🥈 2", "AlgoExpert", "1180", "42"),
+            ("🥉 3", "PythonPro", "1120", "38"),
+            ("4", "JavaWizard", "1050", "35"),
+            ("5", "CppGuru", "980", "32"),
+            ("6", "DataStruct", "920", "30"),
+            ("7", "AlgorithmLover", "870", "28"),
+            ("8", "LeetCodeFan", "810", "25"),
+            ("9", "BinarySearch", "760", "22"),
+            ("10", "QuickSort", "700", "20")
+        ]
+
+        # Agregar datos al grid
+        for row, (position, user, score, problems) in enumerate(ranking_data, start=1):
+            pos_label = QLabel(position)
+            user_label = QLabel(user)
+            score_label = QLabel(score)
+            problems_label = QLabel(problems)
+
+            # Estilo para los datos
+            for label in [pos_label, user_label, score_label, problems_label]:
+                label.setStyleSheet("font-size: 14px; color: #ddd; padding: 8px;")
+
+            # Destacar los primeros 3 puestos
+            if row <= 3:
+                for label in [pos_label, user_label, score_label, problems_label]:
+                    label.setStyleSheet("font-size: 14px; font-weight: bold; color: #f1c40f; padding: 8px;")
+
+            # Agregar al grid en la misma columna que los encabezados
+            grid_layout.addWidget(pos_label, row, 0)  # Posición
+            grid_layout.addWidget(user_label, row, 1)  # Usuario
+            grid_layout.addWidget(score_label, row, 2)  # Puntaje
+            grid_layout.addWidget(problems_label, row, 3)  # Problemas
+
+        ranking_layout.addLayout(grid_layout)
+        layout.addWidget(ranking_frame)
+        layout.addStretch()
+
+        return container
+
+    def create_settings_section(self):
+        """Crea la sección de Ajustes"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # Título
+        title = QLabel("⚙️ Ajustes")
+        title.setStyleSheet("font-size: 28px; font-weight: bold; color: #fff; margin-bottom: 20px;")
+        layout.addWidget(title)
+
+        # Configuraciones
+        settings_frame = QFrame()
+        settings_frame.setStyleSheet("""
+            QFrame {
+                background-color: #252530;
+                border-radius: 8px;
+                border: 1px solid #444;
+                padding: 20px;
             }
         """)
-        rank_list.addItems([
-            "1. Alice - 1240",
-            "2. Bob - 1190",
-            "3. Carol - 1100"
-        ])
-        rank_layout.addWidget(rank_list)
-        layout.addWidget(rank_card)
+        settings_layout = QVBoxLayout(settings_frame)
 
-        return right
+        settings_options = [
+            ("Tema", "Oscuro"),
+            ("Lenguaje por defecto", "C++"),
+            ("Tamaño de fuente", "Mediano"),
+            ("Auto-guardado", "Activado"),
+            ("Notificaciones", "Desactivadas")
+        ]
+
+        for setting, value in settings_options:
+            setting_layout = QHBoxLayout()
+
+            setting_label = QLabel(setting)
+            setting_label.setStyleSheet("font-size: 16px; color: #fff;")
+
+            value_label = QLabel(value)
+            value_label.setStyleSheet("font-size: 16px; color: #ccc;")
+
+            setting_layout.addWidget(setting_label)
+            setting_layout.addStretch()
+            setting_layout.addWidget(value_label)
+
+            settings_layout.addLayout(setting_layout)
+
+        layout.addWidget(settings_frame)
+        layout.addStretch()
+
+        return container
+
+    def _button_style(self, color):
+        """Devuelve stylesheet para botones con color dado."""
+        return f"""
+            QPushButton {{
+                background-color: {color};
+                color: white;
+                font-weight: bold;
+                border-radius: 4px;
+                padding: 5px 15px;
+            }}
+            QPushButton:hover {{
+                background-color: {color}dd;
+            }}
+        """
 
 
 if __name__ == "__main__":

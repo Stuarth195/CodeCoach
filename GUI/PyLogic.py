@@ -1,4 +1,12 @@
 # PyLogic.py
+import sys
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
+                             QHBoxLayout, QGridLayout, QTabWidget, QTextEdit,
+                             QListWidget, QLabel, QPushButton, QSplitter,
+                             QFrame, QProgressBar, QStackedWidget)
+from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, pyqtProperty
+from PyQt5.QtGui import QFont, QPalette, QColor, QIcon, QFontDatabase
+
 class User:
     """
     Clase que representa a un usuario de la plataforma leetAI.
@@ -61,8 +69,9 @@ class UIActions:
         print(">>> Botón 'Ejecutar' presionado")
 
     def send_code(self):
-        """Enviar solución para evaluación."""
-        print(">>> Botón 'Enviar' presionado")
+
+
+        print(">>> Ranking y progreso actualizados con datos fijos")
 
     def reset_editor(self):
         """Reiniciar el editor a plantilla."""
@@ -151,3 +160,5 @@ class LogAccion:
             print(f"Puntaje actualizado para {username}: +{points_earned} puntos")
             return True
         return False
+
+
