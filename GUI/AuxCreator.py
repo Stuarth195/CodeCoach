@@ -1,5 +1,14 @@
-# AuxCreator.py (versión reorganizada)
+# AuxCreator.py (versión reorganizada y corregida)
 import sys
+
+try:
+    import PyLogic as H
+    # Importar la nueva clase
+    from PyLogic import DatabaseHandler
+except Exception as e:
+    print(f"Error importing PyLogic: {e}")
+    H = None
+    DatabaseHandler = None  # Añade esta línea
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QGridLayout, QTabWidget, QTextEdit,
                              QListWidget, QLabel, QPushButton, QSplitter,
@@ -18,10 +27,26 @@ except Exception as e:
 
 
 class ModernMainWindow(QMainWindow):
+
     def __init__(self):
         super().__init__()
         self.current_section = None
         self.initUI()
+
+        # --- Conexión a la Base de Datos ---
+
+        # 1. Instanciar el manejador de la base de datos
+        if DatabaseHandler:
+            self.db_handler = DatabaseHandler()
+        else:
+            self.db_handler = None
+
+        # 2. Cargar los problemas en la lista de la barra lateral
+        self.load_problems_into_sidebar()
+
+        # 3. Conectar la lista a una nueva función
+        if hasattr(self, 'problems_list'):
+            self.problems_list.itemClicked.connect(self.display_problem_details)
 
     def initUI(self):
         """Inicializa la interfaz de usuario con diseño moderno"""
@@ -172,7 +197,9 @@ class ModernMainWindow(QMainWindow):
 
     def setup_fonts(self):
         """Configura fuentes personalizadas para la aplicación"""
-        QFontDatabase.addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf")
+        # (Asegúrate de tener esta ruta de recursos si la usas, de lo contrario coméntala)
+        # QFontDatabase.addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf")
+        pass  # Puedes descomentar la línea de arriba si tienes un archivo de recursos .qrc
 
     def setup_dark_palette(self):
         """Configura paleta de colores oscura moderna"""
@@ -184,6 +211,83 @@ class ModernMainWindow(QMainWindow):
         dark_palette.setColor(QPalette.ToolTipBase, QColor(50, 50, 55))
         dark_palette.setColor(QPalette.ToolTipText, QColor(220, 220, 220))
         self.setPalette(dark_palette)
+
+    # ... dentro de ModernMainWindow
+
+    def load_problems_into_sidebar(self):
+        """
+        Obtiene los títulos de la base de datos y los pone en self.problems_list.
+        """
+        if not self.db_handler:
+            print("No hay manejador de base de datos.")
+            return
+
+        # Obtener los títulos formateados desde PyLogic
+        problem_titles = self.db_handler.get_all_problem_titles()
+
+        # Limpiar la lista estática que tenías
+        self.problems_list.clear()
+
+        if problem_titles:
+            # Añadir los nuevos ítems desde la BD
+            self.problems_list.addItems(problem_titles)
+        else:
+            # Mostrar un error si no se pudo cargar
+            self.problems_list.addItem("Error al cargar problemas")
+
+    def display_problem_details(self, item):
+        """
+        Se activa al hacer clic en un ítem de self.problems_list.
+        Busca el problema en la BD y actualiza la sección "Problemas".
+        """
+        if not self.db_handler:
+            return
+
+        # Extraer el título limpio
+        # El texto es "🟢 Suma de dos números - Fácil"
+        # Necesitamos "Suma de dos números"
+        full_text = item.text()
+        try:
+            # Quitar el ícono y el espacio
+            title_with_diff = full_text.split(" ", 1)[1]
+            # Quitar la dificultad (ej: " - Fácil")
+            problem_title = title_with_diff.split(" - ")[0].strip()
+        except IndexError:
+            print(f"Error al parsear el título: {full_text}")
+            return
+
+        print(f"Buscando detalles para: {problem_title}")
+
+        # 2. Obtener datos completos de la BD
+        problem_data = self.db_handler.get_problem_details(problem_title)
+
+        if not problem_data:
+            print("No se encontraron datos para este problema.")
+            return
+
+        # 3. Actualizar los widgets de la sección "Problemas"
+        if hasattr(self, 'problem_section_title') and hasattr(self, 'problem_section_desc'):
+            self.problem_section_title.setText(problem_data.get('title', 'Sin Título'))
+
+            # Formatear la descripción y los ejemplos
+            statement = problem_data.get('statement', 'Sin descripción.')
+            examples_list = problem_data.get('examples', [])
+
+            examples_text = "\n\n" + "=" * 20 + "\nEJEMPLOS\n" + "=" * 20
+            for ex in examples_list:
+                examples_text += f"\n\nInput: {ex.get('input', '')}"
+                examples_text += f"\nOutput: {ex.get('output', '')}"
+                if 'explanation' in ex and ex.get('explanation'):
+                    examples_text += f"\nExplicación: {ex.get('explanation')}"
+
+            self.problem_section_desc.setText(statement + examples_text)
+
+            # Opcional: Cambiar a la sección de problemas automáticamente
+            self.show_section("Problemas")
+
+        else:
+            print("Error: 'problem_section_title' o 'problem_section_desc' no existen.")
+            print("Asegúrate de añadir 'self.' en el método create_problems_section.")
 
     def create_left_sidebar(self):
         """Crea la barra lateral izquierda con navegación"""
@@ -257,15 +361,9 @@ class ModernMainWindow(QMainWindow):
                 padding: 6px;
             }
         """)
-        problems = [
-            "🟢 Two Sum - Fácil",
-            "🟢 Valid Parentheses - Fácil",
-            "🟡 Reverse Linked List - Medio",
-            "🟡 Binary Tree Inorder - Medio",
-            "🔴 Median of Two Arrays - Difícil",
-            "🔴 Trapping Rain Water - Difícil"
-        ]
-        self.problems_list.addItems(problems)
+        # Dejamos que 'load_problems_into_sidebar' llene esta lista.
+        # Ya no necesitamos los datos estáticos aquí.
+
         layout.addWidget(self.problems_list)
 
         return sidebar
@@ -406,21 +504,24 @@ class ModernMainWindow(QMainWindow):
         """)
         problem_layout = QVBoxLayout(problem_frame)
 
-        problem_title = QLabel("Two Sum")
-        problem_title.setStyleSheet("font-size: 24px; font-weight: bold; color: #fff; margin-bottom: 15px;")
-        problem_layout.addWidget(problem_title)
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Convertimos 'problem_title' y 'problem_desc' en atributos de clase (self.)
+        # para que 'display_problem_details' pueda acceder a ellos y modificar su texto.
 
-        problem_desc = QLabel(
-            "Dada una lista de enteros y un objetivo, encuentra dos números que sumen el objetivo.\n\n"
-            "Puedes asumir que cada entrada tiene exactamente una solución, y no puedes usar el mismo elemento dos veces.\n\n"
-            "Ejemplo:\n"
-            "Input: nums = [2,7,11,15], target = 9\n"
-            "Output: [0,1]\n"
-            "Explicación: nums[0] + nums[1] = 2 + 7 = 9"
+        self.problem_section_title = QLabel("Selecciona un problema")
+        self.problem_section_title.setStyleSheet(
+            "font-size: 24px; font-weight: bold; color: #fff; margin-bottom: 15px;")
+        problem_layout.addWidget(self.problem_section_title)
+
+        self.problem_section_desc = QLabel(
+            "Haz clic en un problema de la lista de la barra lateral "
+            "para ver sus detalles completos aquí."
         )
-        problem_desc.setStyleSheet("font-size: 14px; color: #ddd; line-height: 1.5;")
-        problem_desc.setWordWrap(True)
-        problem_layout.addWidget(problem_desc)
+        self.problem_section_desc.setStyleSheet("font-size: 14px; color: #ddd; line-height: 1.5;")
+        self.problem_section_desc.setWordWrap(True)
+        problem_layout.addWidget(self.problem_section_desc)
+
+        # --- FIN DE LA CORRECCIÓN ---
 
         layout.addWidget(problem_frame)
         layout.addStretch()

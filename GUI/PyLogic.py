@@ -1,5 +1,6 @@
 # PyLogic.py
 import sys
+import pymongo
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QGridLayout, QTabWidget, QTextEdit,
                              QListWidget, QLabel, QPushButton, QSplitter,
@@ -56,6 +57,74 @@ class User:
             exercise_list=data.get('exercise_list', [])
         )
 
+# ... después de la clase User
+
+class DatabaseHandler:
+    """
+    Maneja toda la comunicación con la base de datos MongoDB.
+    """
+    def __init__(self):
+        # Conectarse al servidor local de MongoDB
+        try:
+            self.client = pymongo.MongoClient("mongodb://localhost:27017/")
+            # Acceder a la base de datos 'codecoach_db'
+            self.db = self.client["codecoach_db"]
+            # Acceder a la colección 'problems'
+            self.problems_collection = self.db["problems"]
+            print(">>> Conexión a MongoDB exitosa.")
+        except pymongo.errors.ConnectionFailure as e:
+            print(f"Error al conectar a MongoDB: {e}")
+            self.client = None
+            self.db = None
+            self.problems_collection = None
+
+    def get_all_problem_titles(self):
+        """
+        Obtiene una lista de todos los títulos de problemas y su dificultad.
+        """
+        if self.problems_collection is None:
+            return []
+
+        try:
+            # Buscar todos los documentos ({})
+            # Proyectar solo los campos 'title' y 'difficulty'
+            # El campo '_id' se excluye (0)
+            problems = self.problems_collection.find(
+                {},
+                {"title": 1, "difficulty": 1, "_id": 0}
+            )
+
+            # Formatear para la lista de la UI
+            formatted_list = []
+            for problem in problems:
+                icon = "🟢" if problem.get('difficulty') == "Fácil" else "🟡"
+                if problem.get('difficulty') == "Difícil": icon = "🔴"
+
+                formatted_list.append(f"{icon} {problem.get('title')} - {problem.get('difficulty')}")
+
+            return formatted_list
+
+        except Exception as e:
+            print(f"Error al obtener títulos de problemas: {e}")
+            return []
+
+    def get_problem_details(self, title):
+        """
+        Obtiene todos los detalles de un problema por su título.
+        """
+        if self.problems_collection is None:
+            return None
+
+        try:
+            # Buscar un documento que coincida con el título
+            problem_data = self.problems_collection.find_one({"title": title})
+            return problem_data # Devuelve el diccionario completo
+
+        except Exception as e:
+            print(f"Error al obtener detalles del problema {title}: {e}")
+            return None
+
+# ... aquí continúa tu clase UIActions
 
 class UIActions:
     """
