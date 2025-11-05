@@ -274,11 +274,16 @@ class ModernMainWindow(QMainWindow):
             examples_list = problem_data.get('examples', [])
 
             examples_text = "\n\n" + "=" * 20 + "\nEJEMPLOS\n" + "=" * 20
+
+            # --- INICIO DE LA MODIFICACIÓN ---
+            # Ahora leemos los campos 'input_pretty' y 'output_pretty'
+            # para mostrar en la UI.
             for ex in examples_list:
-                examples_text += f"\n\nInput: {ex.get('input', '')}"
-                examples_text += f"\nOutput: {ex.get('output', '')}"
+                examples_text += f"\n\n{ex.get('input_pretty', 'Input: (no definido)')}"
+                examples_text += f"\n{ex.get('output_pretty', 'Output: (no definido)')}"
                 if 'explanation' in ex and ex.get('explanation'):
                     examples_text += f"\nExplicación: {ex.get('explanation')}"
+            # --- FIN DE LA MODIFICACIÓN ---
 
             self.problem_section_desc.setText(statement + examples_text)
 

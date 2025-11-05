@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="017878cc-8b3e-46bd-9115-fc3263142772" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/GUI/AuxCreator.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/AuxCreator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/GUI/PyLogic.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/PyLogic.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -59,7 +59,7 @@
       <option name="presentableId" value="Default" />
       <updated>1762369666481</updated>
       <workItem from="1762369668771" duration="177000" />
-      <workItem from="1762369874486" duration="2502000" />
+      <workItem from="1762369874486" duration="4006000" />
     </task>
     <servers />
   </component>
@@ -67,7 +67,7 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/CodeCoach$Gui.coverage" NAME="Gui Coverage Results" MODIFIED="1762373465793" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/GUI" />
-    <SUITE FILE_PATH="coverage/CodeCoach$AuxCreator.coverage" NAME="AuxCreator Coverage Results" MODIFIED="1762373204177" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/GUI" />
+    <SUITE FILE_PATH="coverage/CodeCoach$Gui.coverage" NAME="Gui Coverage Results" MODIFIED="1762374668517" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/GUI" />
+    <SUITE FILE_PATH="coverage/CodeCoach$AuxCreator.coverage" NAME="AuxCreator Coverage Results" MODIFIED="1762374660244" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/GUI" />
   </component>
 </project>
