@@ -7,7 +7,6 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, pyqtProperty
 from PyQt5.QtGui import QFont, QPalette, QColor, QIcon, QFontDatabase
 
-
 # =============================================
 # 1. DEFINICIONES DUMMY (BACKUP)
 # =============================================
@@ -21,7 +20,6 @@ class DummyHttpClient:
             "details": f"Asegúrate de que PyLogic.py se importa correctamente o el servidor está activo."
         }
 
-
 class DummyCompilerWrapper:
     def __init__(self):
         self.http_client = DummyHttpClient()
@@ -31,7 +29,6 @@ class DummyCompilerWrapper:
 
     def send_evaluation_package(self, package):
         return self.http_client.send(package, "/dummy_evaluation")
-
 
 class DummyDatabaseHandler:
     def __init__(self):
@@ -47,8 +44,6 @@ class DummyDatabaseHandler:
 
     def get_all_problem_titles(self):
         return ["Problema de Prueba 1 (Dummy)", "Otro Problema (Dummy)"]
-
-
 # =============================================
 # 2. IMPORTACIÓN SEGURA DE PYLOGIC
 # =============================================

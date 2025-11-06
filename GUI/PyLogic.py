@@ -170,23 +170,55 @@ class DatabaseHandler:
 
 class UIActions:
     """
-    Clase que contiene los métodos que responderán a los botones de la UI.
+    Clase actualizada con mejor logging para debugging
     """
-
+    
     def __init__(self, main_window):
         self.win = main_window
 
     def run_code(self):
-        """Se ejecutará cuando el usuario presione 'Ejecutar'."""
-        print(">>> Botón 'Ejecutar' presionado")
-
-    def send_code(self):
         """
         Se ejecutará cuando el usuario presione 'Enviar'.
-        Llama al método de ModernMainWindow que gestiona la recolección y el envío.
+        Mejorado con logging detallado.
         """
-        print(">>> Botón 'Enviar' presionado. Iniciando evaluación.")
-        self.win.submit_code_for_evaluation()
+        print("🚀 ===== INICIANDO EVALUACIÓN =====")
+        
+        # Obtener datos de envío
+        submission_package = self.win.get_submission_data_for_evaluation()
+        
+        if submission_package is None:
+            print("❌ No se pudo obtener el paquete de envío")
+            return
+            
+        print(f"✅ Paquete obtenido:")
+        print(f"   - Usuario: {submission_package.get('user_name', 'N/A')}")
+        print(f"   - Problema: {submission_package.get('problem_details', {}).get('title', 'N/A')}")
+        
+        # Limpiar terminal y mostrar mensaje de progreso
+        self.win.terminal_output.clear()
+        self.win.terminal_output.setText("🔄 Enviando código al servidor C++...")
+        
+        try:
+            # Enviar al servidor C++
+            result = self.win.compiler_client.send_evaluation_package(submission_package)
+            
+            print(f"📨 Respuesta del servidor C++: {result.get('status', 'unknown')}")
+            
+            # Mostrar resultados en la interfaz
+            self.win.show_output(result)
+            
+        except Exception as e:
+            error_msg = f"💥 Error inesperado: {str(e)}"
+            print(error_msg)
+            self.win.show_output({
+                "status": "client_error", 
+                "message": error_msg
+            })
+
+    def send_code(self):
+        """Se ejecutará cuando el usuario presione 'Ejecutar'."""
+        print(">>> Botón 'enviar' presionado")
+
 
     def reset_editor(self):
         """Reiniciar el editor a plantilla."""
@@ -269,51 +301,148 @@ class LogAccion:
 
 class HttpClient:
     """
-    Clase general para gestionar peticiones HTTP POST a un servidor.
-    Utiliza la librería 'requests'. Se asume que el servidor corre en 127.0.0.1:5000.
+    Cliente HTTP actualizado para trabajar con Docker
     """
-
-    def __init__(self, host="http://127.0.0.1", port=5000):
-        self.BASE_URL = f"{host}:{port}"
-        print(f"HttpClient inicializado. URL base: {self.BASE_URL}")
+    
+    def __init__(self, host=None, port=5000):
+        # En Docker, usar el nombre del servicio; localmente, localhost
+        docker_host = "cpp-server"  # Nombre del servicio en docker-compose
+        local_host = "localhost"
+        
+        # Determinar automáticamente si estamos en Docker
+        try:
+            import socket
+            # Intentar resolver el nombre del servicio Docker
+            socket.gethostbyname(docker_host)
+            self.BASE_URL = f"http://{docker_host}:{port}"
+            print(f"✅ Conectando al servidor C++ en Docker: {self.BASE_URL}")
+        except socket.gaierror:
+            # Fallback a localhost
+            self.BASE_URL = f"http://{local_host}:{port}"
+            print(f"⚠️  Conectando al servidor C++ local: {self.BASE_URL}")
 
     def send(self, data: dict, endpoint: str):
         """
-        Envía un diccionario de datos (data) al endpoint especificado usando HTTP POST.
+        Envía datos al servidor C++ con mejor manejo de errores
         """
         url = self.BASE_URL + endpoint
+        print(f"📤 Enviando a {url}")
 
         try:
-            response = requests.post(url, json=data, timeout=15)
-
-            if response.ok:
+            response = requests.post(url, json=data, timeout=30)
+            
+            if response.status_code == 200:
                 try:
-                    return response.json()
-                except requests.exceptions.JSONDecodeError:
+                    result = response.json()
+                    print(f"✅ Respuesta recibida del servidor C++")
+                    return result
+                except requests.exceptions.JSONDecodeError as e:
+                    print(f"❌ Error decodificando JSON: {e}")
                     return {
-                        "status": "error_decoding",
-                        "message": "Respuesta recibida, pero el servidor no devolvió JSON válido.",
-                        "http_status": response.status_code
+                        "status": "json_error",
+                        "message": f"Error decodificando respuesta: {str(e)}",
+                        "response_text": response.text[:200]
                     }
             else:
+                print(f"❌ Error HTTP {response.status_code}: {response.text}")
                 return {
-                    "status": "server_error",
-                    "message": f"Error HTTP {response.status_code} en el servidor.",
-                    "http_status": response.status_code,
+                    "status": "http_error",
+                    "message": f"Error HTTP {response.status_code}",
                     "details": response.text
                 }
 
         except requests.exceptions.ConnectionError:
+            error_msg = f"❌ No se pudo conectar al servidor C++ en {url}"
+            print(error_msg)
             return {
                 "status": "connection_error",
-                "message": "Fallo de conexión. Asegúrate de que el contenedor Docker esté corriendo."
+                "message": error_msg,
+                "suggestion": "Asegúrate de que el servidor C++ esté ejecutándose en Docker"
             }
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.Timeout:
+            error_msg = f"⏰ Timeout al conectar con el servidor C++"
+            print(error_msg)
             return {
-                "status": "network_error",
-                "message": f"Fallo al enviar la petición: {e}"
+                "status": "timeout_error",
+                "message": error_msg
+            }
+        except Exception as e:
+            error_msg = f"💥 Error inesperado: {str(e)}"
+            print(error_msg)
+            return {
+                "status": "unexpected_error",
+                "message": error_msg
             }
 
+
+class CodeCompilerWrapper:
+    """
+    Capa de lógica de negocio actualizada para el nuevo formato
+    """
+    
+    def __init__(self):
+        self.http_client = HttpClient()  # Usa detección automática
+
+    def send_evaluation_package(self, submission_package: dict):
+        """
+        Adapta el formato antiguo al nuevo formato esperado por C++
+        """
+        print("🔄 Adaptando formato para servidor C++...")
+        
+        # Extraer datos del paquete original
+        user_code = submission_package.get("code", "")
+        problem_details = submission_package.get("problem_details", {})
+        user_name = submission_package.get("user_name", "Invitado")
+        
+        # Construir el nuevo formato para C++
+        cpp_payload = {
+            "problem_title": problem_details.get("title", "Problema sin título"),
+            "user_code": user_code,
+            "test_cases": self._extract_test_cases(problem_details)
+        }
+        
+        print(f"📦 Payload para C++:")
+        print(f"   - Problema: {cpp_payload['problem_title']}")
+        print(f"   - Casos de prueba: {len(cpp_payload['test_cases'])}")
+        print(f"   - Usuario: {user_name}")
+        
+        endpoint = "/submit_evaluation"
+        return self.http_client.send(cpp_payload, endpoint)
+    
+    def _extract_test_cases(self, problem_details: dict) -> list:
+        """
+        Extrae y formatea los casos de prueba del formato MongoDB al formato C++
+        """
+        examples = problem_details.get('examples', [])
+        test_cases = []
+        
+        for i, example in enumerate(examples, 1):
+            test_case = {
+                "input_raw": example.get('input_raw', ''),
+                "expected_output_raw": example.get('output_raw', '')
+            }
+            test_cases.append(test_case)
+            
+            # Log para debugging
+            print(f"   Caso {i}: Input='{test_case['input_raw']}', Expected='{test_case['expected_output_raw']}'")
+        
+        return test_cases
+
+    def send_code_to_compile(self, user_code: str):
+        """
+        Para el botón 'Ejecutar' - compilación simple
+        """
+        # Para compatibilidad, podemos usar el mismo formato pero con un caso vacío
+        payload = {
+            "problem_title": "Ejecución Rápida",
+            "user_code": user_code,
+            "test_cases": [{
+                "input_raw": "",
+                "expected_output_raw": ""
+            }]
+        }
+        endpoint = "/submit_evaluation"
+        return self.http_client.send(payload, endpoint)
 
 class CodeCompilerWrapper:
     """
