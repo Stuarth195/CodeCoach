@@ -1,36 +1,52 @@
-    # mock_server.py prueab de envio
-    from flask import Flask, request, jsonify
+# mock_server.py
+from flask import Flask, request, jsonify
 
-    app = Flask(__name__)
-
-
-    @app.route('/submit_evaluation', methods=['POST'])
-    def mock_submit_evaluation():
-        """ Recibe y verifica el paquete de datos, luego simula un resultado. """
-        try:
-            data = request.get_json()
-
-            # Extracción y verificación del paquete (Tu código está funcionando si ves esto)
-            code_snippet = data.get('code', 'N/A')[:50]  # Primeros 50 caracteres del código
-            problem_title = data.get('problem_details', {}).get('title', 'Problema Desconocido')
-
-            print("\n--- ¡PAQUETE RECIBIDO DE LA GUI! ---")
-            print(f"Código Enviado (Snippet): {code_snippet}...")
-            print(f"Detalles del Problema: {problem_title}")
-            print("------------------------------------")
-
-            # Simula una respuesta de error para ver el color rojo en la GUI
-            return jsonify({
-                "status": "runtime_error",
-                "message": "La evaluación falló en el caso de prueba 5/10.",
-                "error": "Error de segmentación: Desbordamiento de búfer en la línea 42.",
-                "output": "Resultado de la ejecución de la prueba #1: OK.\nResultado de la prueba #5: Fallo."
-            }), 200  # Estado HTTP 200: El servidor recibió y procesó la petición.
-
-        except Exception as e:
-            return jsonify({"status": "server_error", "message": f"Error interno en el mock: {e}"}), 500
+app = Flask(__name__)
 
 
-    if __name__ == '__main__':
-        print("MOCK SERVER INICIADO. Esperando en http://127.0.0.1:5000/submit_evaluation")
-        app.run(host='127.0.0.1', port=5000, debug=False)
+@app.route('/submit_evaluation', methods=['POST'])
+def mock_submit_evaluation():
+    """ Devuelve EXACTAMENTE lo que recibe para corroborar el formato """
+    try:
+        data = request.get_json()
+
+        print("\n=== DATOS RECIBIDOS EN EL SERVIDOR ===")
+        print(f"Código (primeros 100 chars): {data.get('code', 'N/A')[:100]}...")
+        print(f"Usuario: {data.get('user_name', 'N/A')}")
+
+        problem_details = data.get('problem_details', {})
+        print(f"Título del problema: {problem_details.get('title', 'N/A')}")
+        print(f"Dificultad: {problem_details.get('difficulty', 'N/A')}")
+
+        # Mostrar ejemplos si existen
+        examples = problem_details.get('examples', [])
+        print(f"Número de ejemplos: {len(examples)}")
+        for i, example in enumerate(examples, 1):
+            print(f"  Ejemplo {i}:")
+            print(f"    Input: {example.get('input_raw', 'N/A')}")
+            print(f"    Output esperado: {example.get('output_raw', 'N/A')}")
+
+        print("=====================================\n")
+
+        # DEVOLVER EXACTAMENTE LO RECIBIDO (más un campo extra para confirmación)
+        response_data = {
+            "status": "debug_mode",
+            "message": "Esto es exactamente lo que recibí del cliente:",
+            "received_data": data,  # ← ESTO ES LO IMPORTANTE
+            "confirmation": "El servidor recibió todos los datos correctamente"
+        }
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "server_error",
+            "message": f"Error interno en el mock: {e}"
+        }), 500
+
+
+if __name__ == '__main__':
+    print("MOCK SERVER EN MODO DEBUG INICIADO.")
+    print("Mostrará y devolverá exactamente lo recibido.")
+    print("Esperando en http://127.0.0.1:5000/submit_evaluation")
+    app.run(host='127.0.0.1', port=5000, debug=False)
