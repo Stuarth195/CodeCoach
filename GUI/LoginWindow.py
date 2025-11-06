@@ -9,14 +9,23 @@ from PyQt5.QtGui import QPalette, QColor
 # Importar la clase LogAccion desde PyLogic
 try:
     from PyLogic import LogAccion
+
+    print("INFO: LogAccion importado correctamente desde PyLogic")
 except ImportError:
     # Si no se puede importar, crear una clase dummy
+    print("ERROR: No se pudo importar LogAccion desde PyLogic. Usando clase dummy.")
+
+
     class LogAccion:
         def new_user(self, username, password):
-            print(f"new_user - Usuario: {username}, Contraseña: {password}")
+            print(f"new_user (DUMMY) - Usuario: {username}, Contraseña: {password}")
+            # Simular éxito para permitir continuar
+            return True
 
         def signin(self, username, password):
-            print(f"signin - Usuario: {username}, Contraseña: {password}")
+            print(f"signin (DUMMY) - Usuario: {username}, Contraseña: {password}")
+            # Simular éxito para permitir continuar
+            return True
 
 
 class LoginWindow(QMainWindow):
@@ -213,8 +222,12 @@ class LoginWindow(QMainWindow):
             return
 
         # Llamar al método signin de la lógica
-        self.logic.signin(username, password)
-        self.open_main_window()
+        success = self.logic.signin(username, password)
+
+        if success:
+            self.open_main_window(username)
+        else:
+            self.show_message("Error", "Usuario o contraseña incorrectos")
 
     def handle_new_user(self):
         """Maneja el evento de crear usuario"""
@@ -226,26 +239,49 @@ class LoginWindow(QMainWindow):
             return
 
         # Llamar al método new_user de la lógica
-        self.logic.new_user(username, password)
-        self.open_main_window()
+        success = self.logic.new_user(username, password)
 
-    def open_main_window(self):
+        if success:
+            self.open_main_window(username)
+        else:
+            self.show_message("Error", "No se pudo crear el usuario (puede que ya exista)")
+
+    def open_main_window(self, username):
         """Abre la ventana principal y cierra el login"""
-        from AuxCreator import ModernMainWindow
+        try:
+            from AuxCreator import ModernMainWindow
 
-        # Crear y mostrar ventana principal
-        self.main_window = ModernMainWindow()
-        self.main_window.show()
+            # Crear y mostrar ventana principal
+            self.main_window = ModernMainWindow()
 
-        # Cerrar ventana de login
-        self.close()
+            # Configurar el usuario loggeado
+            from PyLogic import User
+            self.main_window.logged_in_user = User(nombre=username, contrasena="")
+
+            self.main_window.show()
+
+            # Cerrar ventana de login
+            self.close()
+
+        except ImportError as e:
+            print(f"ERROR: No se pudo importar ModernMainWindow: {e}")
+            self.show_message("Error Crítico",
+                              "No se pudo cargar la ventana principal. Verifica que todos los archivos estén presentes.")
+        except Exception as e:
+            print(f"ERROR inesperado al abrir ventana principal: {e}")
+            self.show_message("Error", f"Error al abrir la aplicación: {str(e)}")
 
     def show_message(self, title, message):
         """Muestra un mensaje emergente"""
         msg = QMessageBox(self)
         msg.setWindowTitle(title)
         msg.setText(message)
-        msg.setIcon(QMessageBox.Warning)
+
+        if title == "Error":
+            msg.setIcon(QMessageBox.Warning)
+        else:
+            msg.setIcon(QMessageBox.Information)
+
         msg.setStyleSheet("""
             QMessageBox {
                 background-color: #2c3e50;
@@ -253,6 +289,16 @@ class LoginWindow(QMainWindow):
             }
             QMessageBox QLabel {
                 color: #ecf0f1;
+            }
+            QMessageBox QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                padding: 5px 15px;
+                border-radius: 4px;
+            }
+            QMessageBox QPushButton:hover {
+                background-color: #2980b9;
             }
         """)
         msg.exec_()
