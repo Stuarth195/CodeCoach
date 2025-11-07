@@ -1,38 +1,45 @@
 # LoginWindow.py
 import sys
+import os
+
+# Configurar path correctamente
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
+
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QLineEdit, QPushButton,
                              QFrame, QMessageBox)
 from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve
 from PyQt5.QtGui import QPalette, QColor
 
-# Importar la clase LogAccion desde PyLogic
+# Importar desde módulos de lógica
 try:
-    from PyLogic import LogAccion
+    from logic.auth_logic import AuthManager
+    from logic.user_models import User
+    print("✅ Módulos de lógica importados correctamente")
+except ImportError as e:
+    print(f"❌ Error importando módulos de lógica: {e}")
+    # Fallback para desarrollo
+    class AuthManager:
+        def create_user(self, username, password):
+            return True, "Usuario creado (modo dummy)", None
+        def validate_login(self, username, password):
+            return True, "Login exitoso (modo dummy)", None
+        def get_user_data(self, username):
+            return None
 
-    print("INFO: LogAccion importado correctamente desde PyLogic")
-except ImportError:
-    # Si no se puede importar, crear una clase dummy
-    print("ERROR: No se pudo importar LogAccion desde PyLogic. Usando clase dummy.")
-
-
-    class LogAccion:
-        def new_user(self, username, password):
-            print(f"new_user (DUMMY) - Usuario: {username}, Contraseña: {password}")
-            # Simular éxito para permitir continuar
-            return True
-
-        def signin(self, username, password):
-            print(f"signin (DUMMY) - Usuario: {username}, Contraseña: {password}")
-            # Simular éxito para permitir continuar
-            return True
+    class User:
+        def __init__(self, username=""):
+            self.username = username
+            self.puntaje_total = 0
+            self.problemas_resueltos = 0
 
 
 class LoginWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.main_window = None
-        self.logic = LogAccion()  # Instanciar la lógica de login
+        self.auth_manager = AuthManager()
         self.initUI()
 
     def initUI(self):
@@ -221,13 +228,20 @@ class LoginWindow(QMainWindow):
             self.show_message("Error", "Por favor completa todos los campos")
             return
 
-        # Llamar al método signin de la lógica
-        success = self.logic.signin(username, password)
+        if len(username) < 3:
+            self.show_message("Error", "El usuario debe tener al menos 3 caracteres")
+            return
 
-        if success:
-            self.open_main_window(username)
-        else:
-            self.show_message("Error", "Usuario o contraseña incorrectos")
+        try:
+            success, message, user = self.auth_manager.validate_login(username, password)
+
+            if success:
+                self.open_main_window(user)
+            else:
+                self.show_message("Error", message)
+
+        except Exception as e:
+            self.show_message("Error", f"Error de conexión: {str(e)}")
 
     def handle_new_user(self):
         """Maneja el evento de crear usuario"""
@@ -238,38 +252,24 @@ class LoginWindow(QMainWindow):
             self.show_message("Error", "Por favor completa todos los campos")
             return
 
-        # Llamar al método new_user de la lógica
-        success = self.logic.new_user(username, password)
+        if len(username) < 3:
+            self.show_message("Error", "El usuario debe tener al menos 3 caracteres")
+            return
 
-        if success:
-            self.open_main_window(username)
-        else:
-            self.show_message("Error", "No se pudo crear el usuario (puede que ya exista)")
+        if len(password) < 4:
+            self.show_message("Error", "La contraseña debe tener al menos 4 caracteres")
+            return
 
-    def open_main_window(self, username):
-        """Abre la ventana principal y cierra el login"""
         try:
-            from AuxCreator import ModernMainWindow
+            success, message, user = self.auth_manager.create_user(username, password)
 
-            # Crear y mostrar ventana principal
-            self.main_window = ModernMainWindow()
+            if success:
+                self.open_main_window(user)
+            else:
+                self.show_message("Error", message)
 
-            # Configurar el usuario loggeado
-            from PyLogic import User
-            self.main_window.logged_in_user = User(nombre=username, contrasena="")
-
-            self.main_window.show()
-
-            # Cerrar ventana de login
-            self.close()
-
-        except ImportError as e:
-            print(f"ERROR: No se pudo importar ModernMainWindow: {e}")
-            self.show_message("Error Crítico",
-                              "No se pudo cargar la ventana principal. Verifica que todos los archivos estén presentes.")
         except Exception as e:
-            print(f"ERROR inesperado al abrir ventana principal: {e}")
-            self.show_message("Error", f"Error al abrir la aplicación: {str(e)}")
+            self.show_message("Error", f"Error de conexión: {str(e)}")
 
     def show_message(self, title, message):
         """Muestra un mensaje emergente"""
@@ -315,17 +315,25 @@ class LoginWindow(QMainWindow):
             self.move(event.globalPos() - self.drag_start_position)
             event.accept()
 
+    def open_main_window(self, user):
+        """Abre la ventana principal y cierra el login"""
+        try:
+            from AuxCreator import ModernMainWindow
 
-def main():
-    """Función principal para ejecutar solo el login"""
-    app = QApplication(sys.argv)
-    app.setStyle('Fusion')
+            self.main_window = ModernMainWindow()
+            self.main_window.logged_in_user = user
 
-    login_window = LoginWindow()
-    login_window.show()
+            print(f"🎮 Iniciando sesión como: {user.username}")
+            print(f"📊 Stats iniciales: {user.puntaje_total} puntos, {user.problemas_resueltos} problemas")
 
-    sys.exit(app.exec_())
+            self.main_window.show()
+            self.close()
 
-
-if __name__ == '__main__':
-    main()
+        except ImportError as e:
+            print(f"ERROR: No se pudo importar dependencias: {e}")
+            self.show_message("Error Crítico", f"No se pudo cargar la aplicación: {str(e)}")
+        except Exception as e:
+            print(f"ERROR inesperado: {e}")
+            import traceback
+            traceback.print_exc()
+            self.show_message("Error", f"Error al abrir la aplicación: {str(e)}")
