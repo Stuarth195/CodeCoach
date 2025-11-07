@@ -208,6 +208,7 @@ __marimo__/
 *.idea
 .vs 
 * .vs
+.idea
 out/
 vcpkg/
 *.exe
