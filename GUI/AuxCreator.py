@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QFrame, QProgressBar, QStackedWidget, QMessageBox)
 from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, pyqtProperty
 from PyQt5.QtGui import QFont, QPalette, QColor, QIcon, QFontDatabase
-
+import threading
 # =============================================
 # 1. DEFINICIONES DUMMY (BACKUP)
 # =============================================
@@ -22,7 +22,38 @@ class DummyHttpClient:
 
 class DummyCompilerWrapper:
     def __init__(self):
-        self.http_client = DummyHttpClient()
+        super().__init__()
+        self.current_section = None
+        self.current_problem_data = None
+        self.logged_in_user = None  # Inicializar para evitar errores
+
+        print("🚀 INICIANDO MODERN MAIN WINDOW...")
+
+        # INSTANCIACIÓN A PRUEBA DE FALLOS
+        try:
+            self.compiler_client = CodeCompilerWrapper()
+            print("✅ CodeCompilerWrapper inicializado")
+        except Exception as e:
+            print(f"❌ Error en CodeCompilerWrapper: {e}")
+            self.compiler_client = DummyCompilerWrapper()
+
+        try:
+            self.db_handler = DatabaseHandler()
+            print("✅ DatabaseHandler inicializado")
+        except Exception as e:
+            print(f"❌ Error en DatabaseHandler: {e}")
+            self.db_handler = DummyDatabaseHandler()
+
+        self.diagnose_database()
+        self.initUI()
+        self.load_problems_into_sidebar()
+
+        # Conectar la lista a una nueva función
+        if hasattr(self, 'problems_list'):
+            self.problems_list.itemClicked.connect(self.display_problem_details)
+            # Retrasar la prueba completa para evitar conflictos con la UI
+            import threading
+            threading.Timer(3.0, self.test_complete_flow).start()
 
     def send_code_to_compile(self, code):
         return self.http_client.send({"code": code}, "/dummy_compile")
@@ -67,11 +98,26 @@ class ModernMainWindow(QMainWindow):
         super().__init__()
         self.current_section = None
         self.current_problem_data = None
-        self.logged_in_user = None  # Inicializar para evitar errores
+        self.logged_in_user = None
+        self.code_base_loaded = False
+
+        print("🚀 INICIANDO MODERN MAIN WINDOW...")
 
         # INSTANCIACIÓN A PRUEBA DE FALLOS
-        self.compiler_client = CodeCompilerWrapper()
-        self.db_handler = DatabaseHandler()  # SI FALLÓ, SERÁ DummyDatabaseHandler
+        try:
+            self.compiler_client = CodeCompilerWrapper()
+            print("✅ CodeCompilerWrapper inicializado")
+        except Exception as e:
+            print(f"❌ Error en CodeCompilerWrapper: {e}")
+            self.compiler_client = DummyCompilerWrapper()
+
+        try:
+            self.db_handler = DatabaseHandler()
+            print("✅ DatabaseHandler inicializado")
+        except Exception as e:
+            print(f"❌ Error en DatabaseHandler: {e}")
+            self.db_handler = DummyDatabaseHandler()
+
         self.diagnose_database()
         self.initUI()
         self.load_problems_into_sidebar()
@@ -79,7 +125,10 @@ class ModernMainWindow(QMainWindow):
         # Conectar la lista a una nueva función
         if hasattr(self, 'problems_list'):
             self.problems_list.itemClicked.connect(self.display_problem_details)
+            # Retrasar la prueba completa para evitar conflictos con la UI
+            threading.Timer(2.0, self.test_complete_flow).start()
 
+    # En AuxCreator.py - AGREGAR ESTO AL __init__ O AL MÉTODO initUI
     def initUI(self):
         """Inicializa la interfaz de usuario con diseño moderno"""
         self.setWindowTitle('leetAI - Code Coaching Platform')
@@ -108,8 +157,11 @@ class ModernMainWindow(QMainWindow):
         # =============================================
         self.setup_actions()
 
+        # Configurar template por defecto - CORREGIDO: después de crear el editor
+        self.setup_default_code_template()
+
         # Mostrar sección por defecto (Editor de Código)
-        self.show_section("Editor")
+        self.show_section("Editor")\g
 
     def create_central_stacked(self):
         """Crea el QStackedWidget para manejar las diferentes secciones"""
@@ -165,43 +217,6 @@ class ModernMainWindow(QMainWindow):
         self.animation.setEndValue(1.0)
         self.animation.setEasingCurve(QEasingCurve.OutCubic)
         self.animation.start()
-
-    def setup_actions(self):
-        """CONECTA LOS BOTONES A SUS MÉTODOS CORRESPONDIENTES"""
-
-        # Instanciar handlers de UI Actions
-        if UIActions is not None:
-            try:
-                self.actions = UIActions(self)
-                print("INFO: UIActions inicializado correctamente.")
-            except Exception as e:
-                print(f'Error instanciando UIActions: {e}')
-                self.actions = self.create_dummy_actions()
-        else:
-            self.actions = self.create_dummy_actions()
-            print("INFO: Usando acciones Dummy.")
-
-        # =============================================
-        # CONEXIÓN DE BOTONES DEL EDITOR
-        # =============================================
-        if hasattr(self.actions, 'run_code'):
-            self.run_btn.clicked.connect(self.actions.run_code)
-
-        if hasattr(self.actions, 'send_code'):
-            self.send_btn.clicked.connect(self.actions.send_code)
-
-        if hasattr(self.actions, 'reset_editor'):
-            self.reset_btn.clicked.connect(self.actions.reset_editor)
-
-        if hasattr(self.actions, 'save_code'):
-            self.save_btn.clicked.connect(self.actions.save_code)
-
-        # =============================================
-        # CONEXIÓN DE BOTONES DE NAVEGACIÓN
-        # =============================================
-        if hasattr(self, 'nav_buttons'):
-            for name, btn in self.nav_buttons.items():
-                btn.clicked.connect(lambda checked=False, n=name: self.show_section(n))
 
     def create_dummy_actions(self):
         """Crea acciones placeholder si no hay módulo de lógica"""
@@ -606,8 +621,6 @@ class ModernMainWindow(QMainWindow):
 
         return container
 
-    # En la clase ModernMainWindow en AuxCreator.py - AGREGAR MÉTODO DE DIAGNÓSTICO
-
     def diagnose_database(self):
         """Método temporal para diagnosticar la conexión a la base de datos"""
         print("\n=== DIAGNÓSTICO DE BASE DE DATOS ===")
@@ -655,7 +668,6 @@ class ModernMainWindow(QMainWindow):
             print(f"💥 Error durante diagnóstico: {e}")
 
         print("=== FIN DIAGNÓSTICO ===\n")
-
 
     def create_settings_section(self):
         """Crea la sección de Ajustes"""
@@ -721,88 +733,111 @@ class ModernMainWindow(QMainWindow):
             }}
         """
 
-    def submit_code_for_evaluation(self):
+    def test_complete_flow(self):
         """
-        Maneja la acción de ENVIAR código. Recopila todos los datos
-        y usa el CodeCompilerWrapper para enviarlos al endpoint de evaluación.
+        Prueba completa del flujo: MongoDB → GUI → Servidor C++
         """
-        submission_package = self.get_submission_data_for_evaluation()
+        print("\n🎯 ===== PRUEBA COMPLETA DEL FLUJO =====")
 
-        if submission_package is None:
-            return
+        # 1. Verificar conexión MongoDB
+        if not self.db_handler or not self.db_handler.client:
+            print("❌ MongoDB no conectado")
+            return False
 
-        self.terminal_output.clear()
-        self.terminal_output.setText("Enviando código y detalles para evaluación...")
+        # 2. Obtener problemas de MongoDB
+        problems = self.db_handler.get_all_problem_titles()
+        if not problems:
+            print("❌ No hay problemas en MongoDB")
+            return False
 
-        try:
-            result = self.compiler_client.send_evaluation_package(submission_package)
-            self.show_output(result)
+        print(f"✅ MongoDB conectado - {len(problems)} problemas encontrados")
 
-        except Exception as e:
-            self.show_output({"status": "local_error", "message": f"Fallo al enviar o procesar la respuesta: {e}"})
+        # 3. Tomar primer problema para prueba
+        test_problem = problems[0]
+        print(f"🔍 Probando con: {test_problem}")
 
-    def get_submission_data_for_evaluation(self):
-        """
-        Recopila el código C++ del usuario y los detalles del problema
-        guardados previamente, listo para ser enviado para la evaluación.
-        """
-        user_code = self.code_editor.toPlainText()
+        # 4. Obtener detalles reales
+        problem_details = self.db_handler.get_problem_details(test_problem)
+        if not problem_details:
+            print("❌ No se pudieron obtener detalles")
+            return False
 
-        problem_data = getattr(self, 'current_problem_data', None)
+        # 5. Configurar como problema actual
+        self.current_problem_data = problem_details
+        print(f"✅ Problema configurado: {problem_details.get('title')}")
 
-        if not user_code.strip():
-            self.show_output({"status": "error", "message": "El editor de código está vacío."})
-            return None
+        # 6. Mostrar ejemplos reales
+        examples = problem_details.get('examples', [])
+        print(f"📋 Ejemplos reales encontrados: {len(examples)}")
+        for i, example in enumerate(examples, 1):
+            print(f"   {i}. Input: '{example.get('input_raw', '')}'")
+            print(f"      Output: '{example.get('output_raw', '')}'")
 
-        if problem_data is None:
-            self.show_output({"status": "error", "message": "Selecciona un problema antes de enviar."})
-            return None
+        # 7. Probar envío automático
+        test_code = """#include <iostream>
+    using namespace std;
+    
+    int main() {
+        cout << "Probando con datos REALES de MongoDB" << endl;
+        return 0;
+    }"""
 
-        submission_package = {
-            "code": user_code,
-            "problem_details": problem_data,
-            "user_name": self.logged_in_user.nombre if getattr(self, 'logged_in_user', None) else "Invitado"
-        }
+        print("🚀 Probando envío automático...")
+        result = self.send_raw_cpp_code(test_code)
 
-        return submission_package
+        print(f"📨 Resultado: {result.get('status', 'N/A')}")
+        print(f"   Mensaje: {result.get('message', 'N/A')}")
 
-    # En AuxCreator.py - MEJORAR EL MÉTODO display_problem_details
+        return result.get('status') == 'success'
+
+        # En AuxCreator.py - MODIFICAR EL MÉTODO send_raw_cpp_code
 
     def display_problem_details(self, item):
         """
         Carga y muestra la descripción de un problema seleccionado
-        obteniendo sus detalles completos desde el DatabaseHandler.
+        Y PREPARA LOS DATOS REALES PARA ENVÍO
         """
         problem_title = item.text()
-        print(f"DEBUG: Item clickeado: {problem_title}")
+        print(f"🎯 ===== CARGANDO PROBLEMA: {problem_title} =====")
 
         if self.db_handler:
-            print("DEBUG: DB Handler disponible, buscando detalles...")
+            print("🔍 Buscando detalles en MongoDB...")
             problem_info = self.db_handler.get_problem_details(problem_title)
         else:
-            print("DEBUG: DB Handler NO disponible")
+            print("❌ DB Handler NO disponible")
             problem_info = None
 
         if not problem_info:
             error_msg = f"Error: No se pudieron cargar los detalles del problema '{problem_title}'"
-            print(f"DEBUG: {error_msg}")
+            print(f"❌ {error_msg}")
             self.show_output({"status": "error", "message": error_msg})
-
-            # Mostrar mensaje en la sección de problemas también
-            self.problem_section_title.setText("Error al cargar problema")
-            self.problem_section_desc.setText(error_msg)
             return
 
-        print(f"DEBUG: Problema encontrado, configurando datos...")
-        self.current_problem_data = problem_info
+        print(f"✅ Problema encontrado en MongoDB:")
+        print(f"   - Título: {problem_info.get('title')}")
+        print(f"   - Dificultad: {problem_info.get('difficulty')}")
 
-        # Actualizar la sección de problemas con los detalles
-        title = problem_info.get('title', problem_title)
+        examples = problem_info.get('examples', [])
+        print(f"   - Ejemplos para testing: {len(examples)}")
+
+        for i, example in enumerate(examples, 1):
+            print(f"     {i}. Input: '{example.get('input_raw', '')}'")
+            print(f"        Output: '{example.get('output_raw', '')}'")
+
+        self.current_problem_data = problem_info
+        print("✅ Datos REALES preparados para envío al servidor C++")
+
+        # Actualizar la interfaz
+        self.update_problem_display(problem_info)
+
+    def update_problem_display(self, problem_info):
+        """Actualiza la visualización del problema en la GUI"""
+        title = problem_info.get('title', 'Sin título')
         statement = problem_info.get('statement', 'Descripción no disponible.')
         difficulty = problem_info.get('difficulty', 'Desconocida')
         category = problem_info.get('category', 'Sin categoría')
 
-        # Construir el contenido descriptivo
+        # Construir HTML con datos reales
         description_html = f"""
         <div style="color: #ddd; line-height: 1.6;">
             <p><b>Dificultad:</b> {difficulty}</p>
@@ -810,21 +845,19 @@ class ModernMainWindow(QMainWindow):
             <p><b>Enunciado:</b> {statement}</p>
         """
 
-        # Agregar ejemplos si existen
+        # Agregar ejemplos REALES
         examples = problem_info.get('examples', [])
         if examples:
-            description_html += "<p><b>Ejemplos:</b></p>"
+            description_html += "<p><b>Ejemplos para testing:</b></p>"
             for i, example in enumerate(examples, 1):
-                input_pretty = example.get('input_pretty', 'N/A')
-                output_pretty = example.get('output_pretty', 'N/A')
-                explanation = example.get('explanation', '')
+                input_raw = example.get('input_raw', 'N/A')
+                output_raw = example.get('output_raw', 'N/A')
 
                 description_html += f"""
                 <div style="margin: 10px 0; padding: 10px; background: #1a1a1f; border-radius: 5px;">
                     <b>Ejemplo {i}:</b><br>
-                    {input_pretty}<br>
-                    {output_pretty}<br>
-                    <i>{explanation}</i>
+                    <b>Input:</b> {input_raw}<br>
+                    <b>Output esperado:</b> {output_raw}
                 </div>
                 """
 
@@ -832,8 +865,240 @@ class ModernMainWindow(QMainWindow):
 
         self.problem_section_title.setText(title)
         self.problem_section_desc.setText(description_html)
+        def show_output(self, result):
+            """
+            Muestra el resultado de la evaluación en la terminal.
+            """
+            status = result.get('status', 'unknown')
+            message = result.get('message', 'No message provided.')
+            details = result.get('details', '')
+            output = result.get('output', '')
 
-        print(f"DEBUG: Problema '{title}' cargado exitosamente")
+            # Configurar color según el estado
+            if status == "success":
+                color = "#00ff00"
+            elif status in ["error", "connection_error", "server_error", "runtime_error"]:
+                color = "#ff0000"
+            else:
+                color = "#ffff00"  # Amarillo para estados desconocidos
+
+            self.terminal_output.setStyleSheet(f"""
+                QTextEdit {{
+                    font-family: 'JetBrains Mono', 'Consolas', monospace;
+                    font-size: 12px;
+                    background-color: #1a1a1f;
+                    border: none;
+                    padding: 15px;
+                    color: {color};
+                }}
+            """)
+
+            display_text = f"Estado: {status}\nMensaje: {message}\n"
+            if details:
+                display_text += f"Detalles: {details}\n"
+            if output:
+                display_text += f"Salida:\n{output}"
+
+            self.terminal_output.setText(display_text)
+
+    def send_raw_cpp_code(self, codigo_cpp: str):
+        """
+        Envía el código C++ en bruto al servidor CON LOS DATOS REALES DE MONGODB
+        SOLO cuando se presiona el botón
+        """
+        try:
+            print("🔄 Iniciando envío de código C++...")
+
+            # Obtener nombre de usuario
+            user_name = "Invitado"
+            if hasattr(self, 'logged_in_user') and self.logged_in_user:
+                user_name = getattr(self.logged_in_user, 'nombre', 'Invitado')
+
+            print(f"👤 Usuario: {user_name}")
+            print(f"📏 Longitud del código: {len(codigo_cpp)} caracteres")
+
+            # Obtener datos REALES del problema actual desde MongoDB
+            payload = self.create_payload_with_real_data(codigo_cpp, user_name)
+
+            if payload is None:
+                error_msg = "❌ No se pudo crear el payload con datos reales"
+                print(error_msg)
+                return {
+                    "status": "error",
+                    "message": error_msg
+                }
+
+            print(f"📦 Payload creado exitosamente:")
+            print(f"   - Usuario: {payload.get('nombre', 'N/A')}")
+            print(f"   - Problema: {payload.get('problem_title', 'N/A')}")
+            print(f"   - Campos: {list(payload.keys())}")
+
+            # Enviar al servidor C++
+            print("📤 Enviando al servidor C++...")
+            result = self.compiler_client.send_evaluation_package(payload)
+
+            print(f"✅ Respuesta recibida: {result.get('status', 'unknown')}")
+            return result
+
+        except Exception as e:
+            error_msg = f"💥 Error crítico en send_raw_cpp_code: {str(e)}"
+            print(error_msg)
+            import traceback
+            traceback.print_exc()
+            return {
+                "status": "critical_error",
+                "message": error_msg
+            }
+
+    def get_current_code(self):
+        """Obtiene el código actual del editor"""
+        if hasattr(self, 'code_editor'):
+            return self.code_editor.toPlainText().strip()
+        return ""
+
+    def submit_code_for_evaluation(self):
+        """
+        Toma el código del editor y lo envía directamente al servidor C++
+        SOLO cuando se presiona el botón Ejecutar/Enviar
+        """
+        # Verificar conexión primero
+        if not hasattr(self, 'compiler_client') or self.compiler_client is None:
+            self.show_output({
+                "status": "error", 
+                "message": "❌ Cliente de compilación no disponible"
+            })
+            return
+
+        # Obtener el código directamente del editor
+        codigo_cpp = self.get_current_code()
+
+        print(f"📝 CÓDIGO A ENVIAR ({len(codigo_cpp)} caracteres):")
+        print("=" * 50)
+        print(codigo_cpp[:500] + ("..." if len(codigo_cpp) > 500 else ""))
+        print("=" * 50)
+
+        if not codigo_cpp:
+            self.show_output({
+                "status": "error",
+                "message": "❌ El editor de código está vacío. Escribe tu código C++ primero."
+            })
+            return
+
+        # Limpiar terminal y mostrar mensaje de envío
+        self.terminal_output.clear()
+        self.terminal_output.setText("🚀 Enviando código al servidor C++...")
+
+        try:
+            # SOLO UNA LLAMADA - eliminar la duplicada
+            result = self.send_raw_cpp_code(codigo_cpp)
+            self.show_output(result)
+
+        except Exception as e:
+            error_msg = f"❌ Error al enviar código: {str(e)}"
+            print(error_msg)
+            import traceback
+            traceback.print_exc()
+            self.show_output({
+                "status": "client_error",
+                "message": error_msg
+            })
+
+    def setup_default_code_template(self):
+        """Pone un código C++ de ejemplo en el editor y marca como no modificado"""
+        default_code = """#include <iostream>
+    #include <vector>
+    #include <string>
+    using namespace std;
+
+    // Función que quieres probar
+    int suma(int a, int b) {
+        return a + b;
+    }
+
+    // Función para procesar strings
+    string procesarTexto(string texto) {
+        return "Procesado: " + texto;
+    }
+
+    int main() {
+        // Ejemplo de uso
+        int resultado = suma(5, 3);
+        cout << "5 + 3 = " << resultado << endl;
+
+        string texto = procesarTexto("Hola Mundo");
+        cout << texto << endl;
+
+        return 0;
+    }"""
+
+        if hasattr(self, 'code_editor'):
+            self.code_editor.setPlainText(default_code)
+            self.code_base_loaded = True
+            print("✅ Código base cargado en el editor")
+        else:
+            print("❌ code_editor no disponible para cargar template")
+      
+    def create_payload_with_real_data(self, codigo_cpp: str, user_name: str):
+        """
+        Crea el payload usando los datos REALES del problema actual desde MongoDB
+        """
+        # Si no hay problema seleccionado, usar datos de prueba
+        if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
+            print("⚠️  No hay problema seleccionado, usando datos de prueba")
+            return self.create_dummy_payload(codigo_cpp, user_name)
+
+        problem_data = self.current_problem_data
+        examples = problem_data.get('examples', [])
+
+        print(f"🔍 Extrayendo datos REALES del problema: {problem_data.get('title', 'N/A')}")
+        print(f"   - Número de ejemplos encontrados: {len(examples)}")
+
+        # Crear payload base
+        payload = {
+            "nombre": user_name,
+            "codigo": codigo_cpp,
+            "problem_title": problem_data.get('title', 'Problema sin título'),
+            "difficulty": problem_data.get('difficulty', 'Desconocida')
+        }
+
+        # Agregar inputs y outputs REALES de MongoDB
+        for i, example in enumerate(examples[:3], 1):  # Máximo 3 ejemplos
+            input_key = f"input{i}"
+            output_key = f"output_esperado{i}"
+
+            # Usar input_raw y output_raw de MongoDB
+            input_val = example.get('input_raw', '')
+            output_val = example.get('output_raw', '')
+
+            payload[input_key] = input_val
+            payload[output_key] = output_val
+
+            print(f"   - Ejemplo {i}: Input='{input_val}', Output='{output_val}'")
+
+        # Rellenar con strings vacíos si hay menos de 3 ejemplos
+        for i in range(len(examples) + 1, 4):
+            payload[f"input{i}"] = ""
+            payload[f"output_esperado{i}"] = ""
+
+        return payload      
+        
+    def create_dummy_payload(self, codigo_cpp: str, user_name: str):
+        """
+        Crea payload con datos de prueba (fallback)
+        """
+        return {
+            "nombre": user_name,
+            "codigo": codigo_cpp,
+            "input1": "5",
+            "input2": "10",
+            "input3": "15",
+            "output_esperado1": "25",
+            "output_esperado2": "100",
+            "output_esperado3": "225",
+            "problem_title": "Problema de Prueba",
+            "difficulty": "Fácil"
+        }  
+
     def show_output(self, result):
         """
         Muestra el resultado de la evaluación en la terminal.
@@ -868,8 +1133,78 @@ class ModernMainWindow(QMainWindow):
         if output:
             display_text += f"Salida:\n{output}"
 
-        self.terminal_output.setText(display_text)
+        self.terminal_output.setText(display_text)  
+    
+    def setup_actions(self):
+        """CONECTA LOS BOTONES A SUS MÉTODOS CORRESPONDIENTES"""
+        # Instanciar handlers de UI Actions
+        if UIActions is not None:
+            try:
+                self.actions = UIActions(self)
+                print("✅ UIActions inicializado correctamente.")
+            except Exception as e:
+                print(f'❌ Error instanciando UIActions: {e}')
+                self.actions = self.create_dummy_actions()
+        else:
+            self.actions = self.create_dummy_actions()
+            print("⚠️  Usando acciones Dummy.")
 
+        # =============================================
+        # CONEXIÓN DIRECTA DE BOTONES (EVITAR DEPENDENCIAS)
+        # =============================================
+        print("🔗 Conectando botones...")
+
+        # Conectar directamente a los métodos de esta clase
+        self.run_btn.clicked.connect(self.submit_code_for_evaluation)
+        self.send_btn.clicked.connect(self.submit_code_for_evaluation)
+
+        # Los otros botones pueden usar las acciones
+        if hasattr(self.actions, 'reset_editor'):
+            self.reset_btn.clicked.connect(self.actions.reset_editor)
+            print("✅ Botón Reiniciar conectado")
+
+        if hasattr(self.actions, 'save_code'):
+            self.save_btn.clicked.connect(self.actions.save_code)
+            print("✅ Botón Guardar conectado")
+
+        # =============================================
+        # CONEXIÓN DE BOTONES DE NAVEGACIÓN
+        # =============================================
+        if hasattr(self, 'nav_buttons'):
+            for name, btn in self.nav_buttons.items():
+                btn.clicked.connect(lambda checked=False, n=name: self.show_section(n))
+            print("✅ Botones de navegación conectados")
+
+        print("🔗 Todos los botones conectados correctamente")
+
+    def create_dummy_actions(self):
+        """Crea acciones placeholder si no hay módulo de lógica"""
+        class _DummyActions:
+            def __init__(self, win):
+                self.win = win
+
+            def run_code(self):
+                print(">>> Botón 'Ejecutar' presionado")
+                self.win.show_output({"status": "dummy", "message": "Ejecución simulada (Dummy)"})
+
+            def send_code(self):
+                print(">>> Botón 'Enviar' presionado")
+                self.win.submit_code_for_evaluation()
+
+            def reset_editor(self):
+                print(">>> Botón 'Reiniciar' presionado")
+                self.win.code_editor.clear()
+                # Recargar template después de reset
+                self.win.setup_default_code_template()
+
+            def save_code(self):
+                print(">>> Botón 'Guardar' presionado")
+                self.win.show_output({"status": "success", "message": "Código guardado (Dummy)"})
+
+            def open_section(self, name):
+                print(f">>> Navegar a: {name}")
+
+        return _DummyActions(self)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

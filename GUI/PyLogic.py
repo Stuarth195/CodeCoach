@@ -298,7 +298,6 @@ class LogAccion:
             return True
         return False
 
-
 class HttpClient:
     """
     Cliente HTTP actualizado para trabajar con Docker
@@ -374,91 +373,56 @@ class HttpClient:
                 "message": error_msg
             }
 
-
 class CodeCompilerWrapper:
     """
-    Capa de lógica de negocio actualizada para el nuevo formato
+    Envía cualquier payload directamente al servidor C++
     """
-    
-    def __init__(self):
-        self.http_client = HttpClient()  # Usa detección automática
 
-    def send_evaluation_package(self, submission_package: dict):
-        """
-        Adapta el formato antiguo al nuevo formato esperado por C++
-        """
-        print("🔄 Adaptando formato para servidor C++...")
-        
-        # Extraer datos del paquete original
-        user_code = submission_package.get("code", "")
-        problem_details = submission_package.get("problem_details", {})
-        user_name = submission_package.get("user_name", "Invitado")
-        
-        # Construir el nuevo formato para C++
-        cpp_payload = {
-            "problem_title": problem_details.get("title", "Problema sin título"),
-            "user_code": user_code,
-            "test_cases": self._extract_test_cases(problem_details)
-        }
-        
-        print(f"📦 Payload para C++:")
-        print(f"   - Problema: {cpp_payload['problem_title']}")
-        print(f"   - Casos de prueba: {len(cpp_payload['test_cases'])}")
-        print(f"   - Usuario: {user_name}")
-        
-        endpoint = "/submit_evaluation"
-        return self.http_client.send(cpp_payload, endpoint)
-    
-    def _extract_test_cases(self, problem_details: dict) -> list:
-        """
-        Extrae y formatea los casos de prueba del formato MongoDB al formato C++
-        """
-        examples = problem_details.get('examples', [])
-        test_cases = []
-        
-        for i, example in enumerate(examples, 1):
-            test_case = {
-                "input_raw": example.get('input_raw', ''),
-                "expected_output_raw": example.get('output_raw', '')
-            }
-            test_cases.append(test_case)
-            
-            # Log para debugging
-            print(f"   Caso {i}: Input='{test_case['input_raw']}', Expected='{test_case['expected_output_raw']}'")
-        
-        return test_cases
+    def __init__(self):
+        self.http_client = HttpClient()
+
 
     def send_code_to_compile(self, user_code: str):
         """
-        Para el botón 'Ejecutar' - compilación simple
+        Para el botón 'Ejecutar' - envía código simple
         """
-        # Para compatibilidad, podemos usar el mismo formato pero con un caso vacío
         payload = {
-            "problem_title": "Ejecución Rápida",
-            "user_code": user_code,
-            "test_cases": [{
-                "input_raw": "",
-                "expected_output_raw": ""
-            }]
+            "nombre": "Ejecución Rápida",
+            "codigo": user_code,
+            "input1": "test1",
+            "input2": "test2",
+            "input3": "test3",
+            "output_esperado1": "result1",
+            "output_esperado2": "result2",
+            "output_esperado3": "result3"
         }
         endpoint = "/submit_evaluation"
         return self.http_client.send(payload, endpoint)
+    def send_evaluation_package(self, payload: dict):
+        """
+        Envía directamente el payload al servidor C++ sin modificaciones
+        """
+        print("🔄 Enviando payload directo al servidor C++...")
 
-class CodeCompilerWrapper:
-    """
-    Capa de lógica de negocio que utiliza HttpClient para enviar código.
-    """
+        # Validar que tenga los campos mínimos
+        if "codigo" not in payload:
+            return {
+                "status": "error",
+                "message": "El payload debe contener al menos el campo 'codigo'"
+            }
 
-    def __init__(self):
-        self.http_client = HttpClient(host="http://127.0.0.1", port=5000)
+        print(f"📤 Enviando a servidor C++:")
+        print(f"   - Campos: {list(payload.keys())}")
+        print(f"   - Código: {payload.get('codigo', '')[:100]}...")
 
-    def send_code_to_compile(self, user_code: str):
-        """Para el botón 'Ejecutar' (compilación simple)"""
-        payload = {"code": user_code}
-        endpoint = "/submit_code"
-        return self.http_client.send(payload, endpoint)
-
-    def send_evaluation_package(self, submission_package: dict):
-        """Para el botón 'Enviar' (evaluación completa con test cases)"""
         endpoint = "/submit_evaluation"
-        return self.http_client.send(submission_package, endpoint)
+        result = self.http_client.send(payload, endpoint)
+        
+        # Asegurar que siempre retorne un dict válido
+        if result is None:
+            return {
+                "status": "error",
+                "message": "No se recibió respuesta del servidor"
+            }
+            
+        return result

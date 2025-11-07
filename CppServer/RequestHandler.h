@@ -1,41 +1,47 @@
-// CppServer/RequestHandler.h
+// RequestHandler.h
 #ifndef REQUESTHANDLER_H
 #define REQUESTHANDLER_H
 
+#include <iostream>
 #include <string>
 #include <functional>
 #include <map>
+#include <sstream>
 #include <curl/curl.h>
 
-// Callback para escribir datos recibidos
-struct WriteData
-{
-    std::string data;
-};
-
-// Tipo para funciones manejadoras de rutas
-using RouteHandler = std::function<std::string(const std::string &)>;
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#endif
 
 class RequestHandler
 {
 private:
-    std::map<std::string, RouteHandler> routes;
+    std::map<std::string, std::function<std::string(const std::string &)>> routes;
 
-    // Callback para cURL para escribir datos
-    static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
-    {
-        size_t totalSize = size * nmemb;
-        WriteData *writeData = static_cast<WriteData *>(userp);
-        writeData->data.append(static_cast<char *>(contents), totalSize);
-        return totalSize;
-    }
+#ifdef _WIN32
+    SOCKET serverSocket;
+#else
+    int serverSocket;
+#endif
+
+    void initializeSocket();
+    void cleanupSocket();
+    std::string readHttpRequest(int clientSocket);
+    void sendHttpResponse(int clientSocket, const std::string &response);
+    std::string parseJsonFromRequest(const std::string &httpRequest);
 
 public:
     RequestHandler();
     ~RequestHandler();
 
-    void addRoute(const std::string &path, RouteHandler handler);
-    std::string handleRequest(const std::string &method, const std::string &path, const std::string &body);
+    void addRoute(const std::string &path, std::function<std::string(const std::string &)> handler);
     void startServer(int port);
 };
 

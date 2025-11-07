@@ -4,6 +4,13 @@ project(CodeCoachServer)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Configuraciones específicas por plataforma
+if(WIN32)
+    set(PLATFORM_LIBS ws2_32)
+else()
+    set(PLATFORM_LIBS pthread)
+endif()
+
 # Encontrar cURL
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(CURL REQUIRED libcurl)
@@ -17,6 +24,6 @@ set(SOURCES
 # Ejecutable principal
 add_executable(CodeCoachServer ${SOURCES})
 
-# Enlazar con cURL
-target_link_libraries(CodeCoachServer ${CURL_LIBRARIES})
+# Enlazar librerías
+target_link_libraries(CodeCoachServer ${CURL_LIBRARIES} ${PLATFORM_LIBS})
 target_include_directories(CodeCoachServer PRIVATE ${CURL_INCLUDE_DIRS})

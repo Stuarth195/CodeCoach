@@ -21,7 +21,7 @@ pacman -S mingw-w64-x86_64-curl mingw-w64-x86_64-cmake
 
 ```bash
 cd /c/Users/shoko/OneDrive/Documents/progra/Repositorilos_GitHub/CodeCoach/CppServer
-g++ -o server.exe main.cpp RequestHandler.cpp -lcurl
+ g++ -o server.exe main.cpp RequestHandler.cpp -lcurl -lws2_32
 ./server.exe
 ```
 
