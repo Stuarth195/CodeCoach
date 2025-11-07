@@ -1,0 +1,28 @@
+# ELIMINAR la línea de version - usar la versión por defecto
+
+services:
+  cpp-server:
+    build: 
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server/src:/app/src
+    environment:
+      - PORT=5000
+    restart: unless-stopped
+
+  gui-app:
+    build:
+      context: .
+      dockerfile: gui/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - cpp-server
+    environment:
+      - CPP_SERVER_URL=http://cpp-server:5000
+    restart: unless-stopped
