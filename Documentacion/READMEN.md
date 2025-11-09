@@ -26,7 +26,7 @@ cd /c/Users/shoko/OneDrive/Documents/progra/Repositorilos_GitHub/CodeCoach/CppSe
 ./server.exe
 ```
 
-### Método con CMake
+### Método con CMake solo en ultia instancia
 
 ```bash
 cd /c/Users/shoko/OneDrive/Documents/progra/Repositorilos_GitHub/CodeCoach/CppServer
