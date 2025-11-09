@@ -92,4 +92,4 @@ cmake --version
 
 ---
 
-**¡Listo para recibir requests de la GUI!** 🎉
+**¡Listo para recibir requests de la GUI!**
