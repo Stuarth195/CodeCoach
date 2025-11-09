@@ -21,7 +21,8 @@ pacman -S mingw-w64-x86_64-curl mingw-w64-x86_64-cmake
 
 ```bash
 cd /c/Users/shoko/OneDrive/Documents/progra/Repositorilos_GitHub/CodeCoach/CppServer
- g++ -o server.exe main.cpp RequestHandler.cpp -lcurl -lws2_32
+ g++ -o server main.cpp RequestHandler.cpp format.cpp -lcurl -lws2_32
+
 ./server.exe
 ```
 
@@ -47,13 +48,6 @@ cd /c/Users/shoko/OneDrive/Documents/progra/Repositorilos_GitHub/CodeCoach/CppSe
 ```
 
 ## 🧪 Probar el Servidor
-
-### Script de Prueba Python
-
-```bash
-cd /c/Users/shoko/OneDrive/Documents/progra/Repositorilos_GitHub/CodeCoach
-python test_server.py
-```
 
 ### Código C++ de Prueba para la GUI
 

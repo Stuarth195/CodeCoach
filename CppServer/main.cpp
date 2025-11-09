@@ -2,25 +2,7 @@
 #include <iostream>
 #include <string>
 #include "RequestHandler.h"
-
-// Función simple para extraer campos del JSON (sin librerías externas)
-std::string extractField(const std::string &json, const std::string &field)
-{
-    std::string pattern = "\"" + field + "\":\"";
-    size_t start = json.find(pattern);
-    if (start == std::string::npos)
-    {
-        pattern = "\"" + field + "\": \"";
-        start = json.find(pattern);
-        if (start == std::string::npos)
-            return "NO_ENCONTRADO";
-    }
-    start += pattern.length();
-    size_t end = json.find("\"", start);
-    if (end == std::string::npos)
-        return "ERROR";
-    return json.substr(start, end - start);
-}
+#include "format.h"
 
 int main()
 {
@@ -39,28 +21,12 @@ int main()
         std::cout << requestBody << std::endl;
         std::cout << "=====================================" << std::endl;
         
-        // Extraer y mostrar campos importantes
-        std::string nombre = extractField(requestBody, "nombre");
-        std::string codigo = extractField(requestBody, "codigo");
-        std::string problem_title = extractField(requestBody, "problem_title");
-        std::string difficulty = extractField(requestBody, "difficulty");
+        // Crear objeto Format con el JSON recibido. Este es el objeto a redireccionar para compilacion o en todo caso sus atributos 
+        // los atriibutos estan en el .h por si se quieren revisar los nombres  
+        Format formulario(requestBody);
         
-        std::cout << "🔍 CAMPOS EXTRAÍDOS:" << std::endl;
-        std::cout << "   👤 Usuario: " << nombre << std::endl;
-        std::cout << "   📝 Problema: " << problem_title << std::endl;
-        std::cout << "   🎚 Dificultad: " << difficulty << std::endl;
-        std::cout << "   📄 Código (primeros 100 chars): " 
-                  << codigo.substr(0, 100) << "..." << std::endl;
-        
-        // Extraer inputs/outputs
-        for (int i = 1; i <= 3; i++) {
-            std::string input = extractField(requestBody, "input" + std::to_string(i));
-            std::string output = extractField(requestBody, "output_esperado" + std::to_string(i));
-            if (input != "NO_ENCONTRADO" && !input.empty()) {
-                std::cout << "   📥 Input " << i << ": " << input << std::endl;
-                std::cout << "   📤 Output " << i << ": " << output << std::endl;
-            }
-        }
+        // Usar los métodos de la clase para mostrar la información
+        formulario.mostrarInformacion(); //este printea todo
         
         std::cout << "✅ FIN DEL ANÁLISIS" << std::endl;
         
@@ -70,14 +36,16 @@ int main()
             "message": "✅ Código recibido y analizado exitosamente",
             "server_message": "El servidor C++ procesó tu código correctamente",
             "details": {
-                "usuario_recibido": ")" + nombre + R"(",
-                "problema_recibido": ")" + problem_title + R"(",
-                "dificultad": ")" + difficulty + R"(",
-                "longitud_codigo": ")" + std::to_string(codigo.length()) + R"( caracteres"
+                "usuario_recibido": ")" + formulario.getNombre() + R"(",
+                "problema_recibido": ")" + formulario.getProblemTitle() + R"(",
+                "dificultad": ")" + formulario.getDifficulty() + R"(",
+                "longitud_codigo": ")" + std::to_string(formulario.getCodigo().length()) + R"( caracteres"
             }
         })"; });
 
-    // Endpoint simple para pruebas
+    // retorna todo el fomatop taol y como lo evio
+
+    // Resto del código igual...
     handler.addRoute("/submit_code", [](const std::string &requestBody)
                      {
         std::cout << "📥 Código simple recibido:" << std::endl;
