@@ -1,20 +1,45 @@
 // format.cpp
 #include "format.h"
 #include <iostream>
+#include <vector>
 
-Format::Format(const std::string &json)
+Format::Format(const std::string &json_str)
 {
-    // Parsear todos los campos del JSON
-    nombre = extractField(json, "nombre");
-    codigo = extractField(json, "codigo");
-    problem_title = extractField(json, "problem_title");
-    difficulty = extractField(json, "difficulty");
-    input1 = extractField(json, "input1");
-    input2 = extractField(json, "input2");
-    input3 = extractField(json, "input3");
-    output_esperado1 = extractField(json, "output_esperado1");
-    output_esperado2 = extractField(json, "output_esperado2");
-    output_esperado3 = extractField(json, "output_esperado3");
+    try
+    {
+        json j = json::parse(json_str);
+        inicializarDesdeJson(j);
+    }
+    catch (const json::parse_error &e)
+    {
+        std::cerr << "❌ Error parseando JSON: " << e.what() << std::endl;
+        // Inicializar con valores por defecto
+        nombre = "ERROR_PARSE";
+        codigo = "";
+        problem_title = "";
+        difficulty = "";
+        input1 = input2 = input3 = "";
+        output_esperado1 = output_esperado2 = output_esperado3 = "";
+    }
+}
+
+Format::Format(const json &json_obj)
+{
+    inicializarDesdeJson(json_obj);
+}
+
+void Format::inicializarDesdeJson(const json &j)
+{
+    nombre = extraerCampo(j, "nombre");
+    codigo = extraerCampo(j, "codigo");
+    problem_title = extraerCampo(j, "problem_title");
+    difficulty = extraerCampo(j, "difficulty");
+    input1 = extraerCampo(j, "input1");
+    input2 = extraerCampo(j, "input2");
+    input3 = extraerCampo(j, "input3");
+    output_esperado1 = extraerCampo(j, "output_esperado1");
+    output_esperado2 = extraerCampo(j, "output_esperado2");
+    output_esperado3 = extraerCampo(j, "output_esperado3");
 }
 
 // Implementación de los getters
@@ -29,6 +54,42 @@ std::string Format::getOutputEsperado1() const { return output_esperado1; }
 std::string Format::getOutputEsperado2() const { return output_esperado2; }
 std::string Format::getOutputEsperado3() const { return output_esperado3; }
 
+std::string Format::getCodigoParaCompilar() const
+{
+    return codigo;
+}
+
+std::vector<std::string> Format::getInputs() const
+{
+    std::vector<std::string> inputs;
+    if (!input1.empty() && input1 != "NO_ENCONTRADO")
+        inputs.push_back(input1);
+    if (!input2.empty() && input2 != "NO_ENCONTRADO")
+        inputs.push_back(input2);
+    if (!input3.empty() && input3 != "NO_ENCONTRADO")
+        inputs.push_back(input3);
+    return inputs;
+}
+
+std::vector<std::string> Format::getOutputsEsperados() const
+{
+    std::vector<std::string> outputs;
+    if (!output_esperado1.empty() && output_esperado1 != "NO_ENCONTRADO")
+        outputs.push_back(output_esperado1);
+    if (!output_esperado2.empty() && output_esperado2 != "NO_ENCONTRADO")
+        outputs.push_back(output_esperado2);
+    if (!output_esperado3.empty() && output_esperado3 != "NO_ENCONTRADO")
+        outputs.push_back(output_esperado3);
+    return outputs;
+}
+
+bool Format::esValido() const
+{
+    return !nombre.empty() && nombre != "NO_ENCONTRADO" &&
+           !codigo.empty() && codigo != "NO_ENCONTRADO" &&
+           !problem_title.empty() && problem_title != "NO_ENCONTRADO";
+}
+
 void Format::mostrarInformacion() const
 {
     std::cout << "🔍 INFORMACIÓN DEL FORMULARIO:" << std::endl;
@@ -39,37 +100,41 @@ void Format::mostrarInformacion() const
               << codigo.substr(0, std::min(100, (int)codigo.length())) << "..." << std::endl;
 
     // Mostrar inputs/outputs si existen
-    if (!input1.empty() && input1 != "NO_ENCONTRADO")
+    auto inputs = getInputs();
+    auto outputs = getOutputsEsperados();
+
+    for (size_t i = 0; i < inputs.size(); ++i)
     {
-        std::cout << "   📥 Input 1: " << input1 << std::endl;
-        std::cout << "   📤 Output 1: " << output_esperado1 << std::endl;
+        std::cout << "   📥 Input " << (i + 1) << ": " << inputs[i] << std::endl;
+        if (i < outputs.size())
+        {
+            std::cout << "   📤 Output " << (i + 1) << ": " << outputs[i] << std::endl;
+        }
     }
-    if (!input2.empty() && input2 != "NO_ENCONTRADO")
-    {
-        std::cout << "   📥 Input 2: " << input2 << std::endl;
-        std::cout << "   📤 Output 2: " << output_esperado2 << std::endl;
-    }
-    if (!input3.empty() && input3 != "NO_ENCONTRADO")
-    {
-        std::cout << "   📥 Input 3: " << input3 << std::endl;
-        std::cout << "   📤 Output 3: " << output_esperado3 << std::endl;
-    }
+
+    std::cout << "   ✅ Formato válido: " << (esValido() ? "Sí" : "No") << std::endl;
 }
 
-std::string Format::extractField(const std::string &json, const std::string &field)
+std::string Format::extraerCampo(const json &j, const std::string &campo)
 {
-    std::string pattern = "\"" + field + "\":\"";
-    size_t start = json.find(pattern);
-    if (start == std::string::npos)
+    try
     {
-        pattern = "\"" + field + "\": \"";
-        start = json.find(pattern);
-        if (start == std::string::npos)
-            return "NO_ENCONTRADO";
+        if (j.contains(campo) && !j[campo].is_null())
+        {
+            if (j[campo].is_string())
+            {
+                return j[campo].get<std::string>();
+            }
+            else
+            {
+                // Si no es string, convertirlo a string
+                return j[campo].dump();
+            }
+        }
     }
-    start += pattern.length();
-    size_t end = json.find("\"", start);
-    if (end == std::string::npos)
-        return "ERROR";
-    return json.substr(start, end - start);
+    catch (const json::exception &e)
+    {
+        std::cerr << "⚠️ Error extrayendo campo '" << campo << "': " << e.what() << std::endl;
+    }
+    return "NO_ENCONTRADO";
 }
