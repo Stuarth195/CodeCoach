@@ -1,0 +1,13 @@
+{
+  "submission_id": "demo-1",
+  "codigo": "#include <iostream>\n#include <string>\nint main(){ std::string s; if(!std::getline(std::cin,s)) return 0; std::cout<<s; return 0; }\n",
+  "compile_timeout_s": 8,
+  "run_timeout_s": 2,
+  "memory_limit_bytes": 134217728,
+  "compare_mode": "normalize",
+  "tests": [
+    { "id": "t1", "stdin": "hola\n", "expected": "hola\n" },
+    { "id": "t2", "stdin": "mundo\n", "expected": "mundo\n" },
+    { "id": "t3", "stdin": "otra prueba\n", "expected": "otra prueba\n" }
+  ]
+}

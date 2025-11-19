@@ -1,8 +1,76 @@
-// main.cpp - CON MANEJO DETALLADO DE JSON
+// main.cpp - CON MANEJO DE JSON Y EJECUCIÓN DEL RUNNER
 #include <iostream>
 #include <string>
+#include <fstream>
+#include <filesystem>
+#include <sstream>
+#include <cstdio>
+
 #include "RequestHandler.h"
-#include "format.h"
+
+namespace fs = std::filesystem;
+
+static std::string write_temp_json(const std::string &body, const std::string &submission_id) {
+    char tmpPathBuf[MAX_PATH];
+    std::string tmpBase;
+    if (GetTempPathA(MAX_PATH, tmpPathBuf) == 0) tmpBase = ".\\";
+    else tmpBase = std::string(tmpPathBuf);
+
+    std::string uniq = submission_id.empty() ? std::to_string(GetCurrentProcessId()) + "-" + std::to_string(GetTickCount64()) : submission_id;
+    fs::path workdir = fs::path(tmpBase) / ("submission-" + uniq);
+    fs::create_directories(workdir);
+    fs::path jsonPath = workdir / "submission.json";
+
+    std::ofstream ofs(jsonPath.string(), std::ios::binary);
+    ofs << body;
+    ofs.close();
+    return jsonPath.string();
+}
+
+static std::string find_runner_exe() {
+    // posibles ubicaciones relativas al ejecutable del servidor
+    std::vector<std::string> candidates = {
+        ".\\runner\\runner.exe",
+        ".\\runner\\build\\runner.exe",
+        "..\\CppServer\\runner\\runner.exe",
+        ".\\runner.exe"
+    };
+    for (auto &c : candidates) {
+        if (fs::exists(c)) return c;
+    }
+    // si no existe en relativas, devolver "runner.exe" y confiar en PATH
+    return "runner.exe";
+}
+
+static std::string run_runner_and_capture(const std::string &runnerPath, const std::string &jsonPath) {
+    // Construir comando con comillas
+    std::string cmd = "\"" + runnerPath + "\" \"" + jsonPath + "\"";
+
+    // Usamos _popen en Windows para capturar stdout de runner
+#ifdef _WIN32
+    FILE* pipe = _popen(cmd.c_str(), "r");
+#else
+    FILE* pipe = popen(cmd.c_str(), "r");
+#endif
+    if (!pipe) {
+        // construir JSON de error simple
+        return R"({"status":"error","message":"failed to run runner"})";
+    }
+    char buffer[4096];
+    std::string result;
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        result += buffer;
+    }
+#ifdef _WIN32
+    _pclose(pipe);
+#else
+    pclose(pipe);
+#endif
+    if (result.empty()) {
+        return R"({"status":"error","message":"runner produced no output"})";
+    }
+    return result;
+}
 
 int main()
 {
@@ -13,48 +81,42 @@ int main()
 
     // Endpoint principal para evaluación
     handler.addRoute("/submit_evaluation", [](const std::string &requestBody)
-                     {
-        std::cout << "\n🎯 ===== EVALUACIÓN RECIBIDA =====" << std::endl;
-        
-        // Mostrar JSON completo
-        std::cout << "📦 JSON COMPLETO:" << std::endl;
-        std::cout << requestBody << std::endl;
-        std::cout << "=====================================" << std::endl;
-        
-        // Crear objeto Format con el JSON recibido. Este es el objeto a redireccionar para compilacion o en todo caso sus atributos 
-        // los atriibutos estan en el .h por si se quieren revisar los nombres  
-        Format formulario(requestBody);
-        
-        // Usar los métodos de la clase para mostrar la información
-        formulario.mostrarInformacion(); //este printea todo
-        
-        std::cout << "✅ FIN DEL ANÁLISIS" << std::endl;
-        
-        // Respuesta de éxito
-        return R"({
-            "status": "success",
-            "message": "✅ Código recibido y analizado exitosamente",
-            "server_message": "El servidor C++ procesó tu código correctamente",
-            "details": {
-                "usuario_recibido": ")" + formulario.getNombre() + R"(",
-                "problema_recibido": ")" + formulario.getProblemTitle() + R"(",
-                "dificultad": ")" + formulario.getDifficulty() + R"(",
-                "longitud_codigo": ")" + std::to_string(formulario.getCodigo().length()) + R"( caracteres"
-            }
-        })"; });
+    {
+        // Guardar el JSON recibido en un archivo temporal y ejecutar runner
+        try {
+            // Intentar extraer submission_id mínimo; si no está, usar random
+            std::string submission_id = "";
+            // Escribir JSON a archivo temporal
+            std::string jsonPath = write_temp_json(requestBody, submission_id);
 
-    // retorna todo el fomatop taol y como lo evio
+            // localizar runner.exe
+            std::string runnerExe = find_runner_exe();
 
-    // Resto del código igual...
+            std::cout << "📦 JSON guardado en: " << jsonPath << std::endl;
+            std::cout << "▶️ Ejecutando runner: " << runnerExe << std::endl;
+
+            std::string runnerOutput = run_runner_and_capture(runnerExe, jsonPath);
+
+            std::cout << "📤 Runner output length: " << runnerOutput.size() << std::endl;
+
+            // devolver exactamente lo que produjo runner (se espera JSON)
+            return runnerOutput;
+        } catch (std::exception &e) {
+            std::ostringstream ss;
+            ss << R"({"status":"error","message":"exception in server","detail":")" << e.what() << "\"}";
+            return ss.str();
+        }
+    });
+
     handler.addRoute("/submit_code", [](const std::string &requestBody)
-                     {
+    {
         std::cout << "📥 Código simple recibido:" << std::endl;
         std::cout << requestBody << std::endl;
-        
         return R"({
-            "status": "success", 
+            "status": "success",
             "message": "Código recibido para compilación simple"
-        })"; });
+        })";
+    });
 
     // Iniciar servidor
     handler.startServer(5000);

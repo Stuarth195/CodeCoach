@@ -7,7 +7,6 @@
 #include <functional>
 #include <map>
 #include <sstream>
-#include <curl/curl.h>
 
 #ifdef _WIN32
 #include <winsock2.h>

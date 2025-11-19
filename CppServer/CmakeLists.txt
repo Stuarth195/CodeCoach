@@ -11,19 +11,23 @@ else()
     set(PLATFORM_LIBS pthread)
 endif()
 
-# Encontrar cURL
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(CURL REQUIRED libcurl)
+
 
 # Archivos fuente
 set(SOURCES
     main.cpp
     RequestHandler.cpp
+    RequestHandler.h
 )
 
 # Ejecutable principal
 add_executable(CodeCoachServer ${SOURCES})
+target_link_libraries(CodeCoachServer ${PLATFORM_LIBS})
 
-# Enlazar librerías
-target_link_libraries(CodeCoachServer ${CURL_LIBRARIES} ${PLATFORM_LIBS})
-target_include_directories(CodeCoachServer PRIVATE ${CURL_INCLUDE_DIRS})
+# Incluir header-only libs (nlohmann::json)
+# Se espera que hayas puesto el single-header en ../include/nlohmann/json.hpp
+target_include_directories(CodeCoachServer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Añadir subdirectorio runner (compilará runner/runner.exe)
+add_subdirectory(runner)
+
