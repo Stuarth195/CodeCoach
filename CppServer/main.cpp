@@ -1,98 +1,60 @@
-// main.cpp - VERSIÓN MEJORADA CON NUEVAS FUNCIONALIDADES
+// main.cpp
 #include <iostream>
 #include <string>
 #include "RequestHandler.h"
 #include "format.h"
+#include "runner.h" // Incluimos el nuevo runner
 #include "json.hpp"
 
 using json = nlohmann::json;
 
 int main()
 {
-    std::cout << "🚀 Iniciando servidor C++ CodeCoach (HTTP REAL)..." << std::endl;
+    std::cout << "🚀 Iniciando servidor C++ CodeCoach..." << std::endl;
     std::cout << "📍 Escuchando en: http://localhost:5000" << std::endl;
 
     RequestHandler handler;
 
-    // Endpoint principal para evaluación
+    // Endpoint principal: Evaluar código
     handler.addRoute("/submit_evaluation", [](const std::string &requestBody)
-                     {
-        std::cout << "\n🎯 ===== EVALUACIÓN RECIBIDA =====" << std::endl;
+    {
+        std::cout << "\n🎯 ===== EVALUACIÓN SOLICITADA =====" << std::endl;
         
-        // Mostrar JSON completo
-        std::cout << "📦 JSON COMPLETO:" << std::endl;
-        std::cout << requestBody << std::endl;
-        std::cout << "=====================================" << std::endl;
-        
-        // Crear objeto Format con el JSON recibido
+        // 1. Analizar formato para loguear y validar
         Format formulario(requestBody);
         
-        // Validar el formato
         if (!formulario.esValido()) {
-            std::cout << "❌ ERROR: JSON con estructura inválida" << std::endl;
+            std::cout << "❌ ERROR: JSON inválido o faltan campos." << std::endl;
             json errorResponse;
             errorResponse["status"] = "error";
-            errorResponse["message"] = "Estructura JSON inválida";
-            errorResponse["details"] = "Faltan campos requeridos en el JSON";
+            errorResponse["message"] = "Estructura JSON inválida (requiere nombre y codigo)";
             return errorResponse.dump();
         }
         
-        // Usar los métodos de la clase para mostrar la información
         formulario.mostrarInformacion();
         
-        // Mostrar información adicional con los nuevos métodos
-        auto inputs = formulario.getInputs();
-        auto outputs = formulario.getOutputsEsperados();
+        std::cout << "⚙️  Invocando Runner (compilación y ejecución)..." << std::endl;
         
-        std::cout << "🔢 RESUMEN EJECUCIÓN:" << std::endl;
-        std::cout << "   📥 Número de inputs: " << inputs.size() << std::endl;
-        std::cout << "   📤 Número de outputs esperados: " << outputs.size() << std::endl;
-        std::cout << "   📝 Longitud del código: " << formulario.getCodigo().length() << " caracteres" << std::endl;
+        // 2. Llamar a la lógica del runner
+        // Pasamos el JSON crudo, el runner se encarga de extraer inputs/outputs
+        std::string runnerJsonResult = runner::evaluate_submission(requestBody);
         
-        std::cout << "✅ FIN DEL ANÁLISIS" << std::endl;
+        std::cout << "✅ Runner finalizado." << std::endl;
         
-        // Construir respuesta JSON usando nlohmann
-        json response;
-        response["status"] = "success";
-        response["message"] = "✅ Código recibido y analizado exitosamente";
-        response["server_message"] = "El servidor C++ procesó tu código correctamente";
-        
-        json details;
-        details["usuario_recibido"] = formulario.getNombre();
-        details["problema_recibido"] = formulario.getProblemTitle();
-        details["dificultad"] = formulario.getDifficulty();
-        details["longitud_codigo"] = std::to_string(formulario.getCodigo().length()) + " caracteres";
-        details["numero_inputs"] = inputs.size();
-        details["numero_outputs"] = outputs.size();
-        details["valido"] = formulario.esValido();
-        
-        response["details"] = details;
-        
-        return response.dump(); });
+        // 3. Retornar directamente la respuesta del runner
+        // (O podrías envolverla si necesitas añadir metadatos del servidor)
+        return runnerJsonResult;
+    });
 
-    // Endpoint para compilación simple
+    // Endpoint auxiliar: Compilación simple (sin tests)
     handler.addRoute("/submit_code", [](const std::string &requestBody)
-                     {
-        std::cout << "📥 Código simple recibido:" << std::endl;
-        std::cout << requestBody << std::endl;
-        
-        // También podemos usar Format aquí si el JSON tiene la misma estructura
-        try {
-            Format codigoSimple(requestBody);
-            if (codigoSimple.esValido()) {
-                std::cout << "✅ Código válido para compilación" << std::endl;
-                std::cout << "📝 Longitud: " << codigoSimple.getCodigo().length() << " caracteres" << std::endl;
-            }
-        } catch (...) {
-            std::cout << "⚠️  JSON no válido para formato esperado" << std::endl;
-        }
-        
-        json response;
-        response["status"] = "success";
-        response["message"] = "Código recibido para compilación simple";
-        return response.dump(); });
+    {
+        std::cout << "\n📥 Compilación simple recibida." << std::endl;
+        // Reutilizamos el runner, este detectará que no hay inputs si no se envían
+        // y solo compilará.
+        return runner::evaluate_submission(requestBody);
+    });
 
-    // Iniciar servidor
     handler.startServer(5000);
 
     return 0;
