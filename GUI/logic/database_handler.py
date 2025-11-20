@@ -16,6 +16,7 @@ class DatabaseHandler:
         self.users_collection = None
         self.problems_collection = None
         self.user_stats_collection = None
+        self.admins_collection = None  # Nueva colección para administradores
 
         self.connect()
 
@@ -30,20 +31,31 @@ class DatabaseHandler:
 
             # Usar codecoach_db para todo
             self.db = self.client["codecoach_db"]
+
+            # Inicializar todas las colecciones
             self.users_collection = self.db["users"]
             self.problems_collection = self.db["problems"]
             self.user_stats_collection = self.db["user_stats"]
+            self.admins_collection = self.db["admins"]  # Nueva colección
 
             # ✅ CORRECCIÓN: Inicializar como None si no existen las colecciones
-            if "users" not in self.db.list_collection_names():
+            existing_collections = self.db.list_collection_names()
+
+            if "users" not in existing_collections:
                 self.users_collection = None
-            if "user_stats" not in self.db.list_collection_names():
+                print("⚠️  Colección 'users' no encontrada")
+            if "user_stats" not in existing_collections:
                 self.user_stats_collection = None
-            if "problems" not in self.db.list_collection_names():
+                print("⚠️  Colección 'user_stats' no encontrada")
+            if "problems" not in existing_collections:
                 self.problems_collection = None
+                print("⚠️  Colección 'problems' no encontrada")
+            if "admins" not in existing_collections:
+                self.admins_collection = None
+                print("⚠️  Colección 'admins' no encontrada - Los usuarios no tendrán privilegios de admin")
 
             print("✅ MongoDB conectado - Base de datos: codecoach_db")
-            print(f"   - Colecciones: users, problems, user_stats")
+            print(f"   - Colecciones disponibles: {existing_collections}")
 
         except ServerSelectionTimeoutError:
             print("❌ ERROR: No se pudo conectar a MongoDB - Verifica que esté ejecutándose")
@@ -51,12 +63,14 @@ class DatabaseHandler:
             self.users_collection = None
             self.user_stats_collection = None
             self.problems_collection = None
+            self.admins_collection = None
         except Exception as e:
             print(f"❌ ERROR DB: {e}")
             self.client = None
             self.users_collection = None
             self.user_stats_collection = None
             self.problems_collection = None
+            self.admins_collection = None
 
     # =============================================
     # MÉTODOS PARA USUARIOS
@@ -64,7 +78,6 @@ class DatabaseHandler:
 
     def user_exists(self, username):
         """Verifica si un usuario ya existe"""
-        # ✅ CORREGIR ESTA LÍNEA:
         if self.users_collection is None:
             return False
         try:
@@ -125,7 +138,6 @@ class DatabaseHandler:
 
     def validate_login(self, username, password):
         """Valida las credenciales de login"""
-        # ✅ CORRECCIÓN: Usar "is None"
         if self.users_collection is None:
             return False
 
@@ -197,7 +209,7 @@ class DatabaseHandler:
             # Incrementar contador por dificultad
             if difficulty == "Fácil":
                 update_fields["$inc"]["facil_resueltos"] = 1
-            elif difficulty == "Media":
+            elif difficulty == "Medio":  # ✅ CORREGIDO: era "Media"
                 update_fields["$inc"]["medio_resueltos"] = 1
             elif difficulty == "Difícil":
                 update_fields["$inc"]["dificil_resueltos"] = 1
@@ -271,7 +283,7 @@ class DatabaseHandler:
 
                 if difficulty == "Fácil":
                     icon = "🟢"
-                elif difficulty == "Media":
+                elif difficulty == "Medio":  # ✅ CORREGIDO: era "Media"
                     icon = "🟡"
                 elif difficulty == "Difícil":
                     icon = "🔴"
@@ -307,8 +319,166 @@ class DatabaseHandler:
             print(f"❌ Error al obtener detalles: {e}")
             return None
 
+    def insert_problem(self, problem_data):
+        """Inserta un nuevo problema en la colección 'problems'"""
+        if self.problems_collection is None:
+            print("❌ Colección 'problems' no disponible")
+            return False
+
+        try:
+            # Verificar si ya existe un problema con el mismo título
+            existing_problem = self.problems_collection.find_one({"title": problem_data["title"]})
+            if existing_problem:
+                print(f"❌ Ya existe un problema con el título: {problem_data['title']}")
+                return False
+
+            # Preparar el documento completo del problema
+            problem_document = {
+                "title": problem_data["title"],
+                "category": problem_data["category"],
+                "difficulty": problem_data["difficulty"],
+                "statement": problem_data["statement"],
+                "big_o_expected": problem_data["big_o_expected"],
+                "examples": problem_data["examples"],
+                "fecha_creacion": datetime.now(),
+                "activo": True
+            }
+
+            # Insertar el nuevo problema
+            result = self.problems_collection.insert_one(problem_document)
+
+            success = result.inserted_id is not None
+
+            if success:
+                print(f"✅ Problema '{problem_data['title']}' insertado correctamente en MongoDB")
+                print(f"   - ID: {result.inserted_id}")
+                print(f"   - Categoría: {problem_data['category']}")
+                print(f"   - Dificultad: {problem_data['difficulty']}")
+                print(f"   - Ejemplos: {len(problem_data['examples'])}")
+            else:
+                print(f"❌ Error al insertar problema '{problem_data['title']}'")
+
+            return success
+
+        except Exception as e:
+            print(f"❌ Error insertando problema: {e}")
+            return False
+
+    # =============================================
+    # MÉTODOS PARA ADMINISTRADORES
+    # =============================================
+
+    def is_user_admin(self, username):
+        """Verifica si un usuario es administrador"""
+        if self.admins_collection is None:
+            print("⚠️  Colección 'admins' no disponible")
+            return False
+
+        try:
+            admin_user = self.admins_collection.find_one({"username": username})
+            is_admin = admin_user is not None
+
+            if is_admin:
+                print(f"👑 Usuario '{username}' es administrador")
+            else:
+                print(f"👤 Usuario '{username}' NO es administrador")
+
+            return is_admin
+
+        except Exception as e:
+            print(f"❌ Error verificando admin: {e}")
+            return False
+
+    def create_admin_user(self, username, email=None):
+        """Crea un nuevo usuario administrador"""
+        if self.admins_collection is None:
+            return False
+
+        try:
+            admin_data = {
+                "username": username,
+                "email": email or f"{username}@codecoach.com",
+                "fecha_creacion": datetime.now(),
+                "activo": True
+            }
+
+            result = self.admins_collection.insert_one(admin_data)
+
+            if result.inserted_id:
+                print(f"✅ Administrador '{username}' creado exitosamente")
+                return True
+            else:
+                return False
+
+        except DuplicateKeyError:
+            print(f"❌ Administrador '{username}' ya existe")
+            return False
+        except Exception as e:
+            print(f"❌ Error creando administrador: {e}")
+            return False
+
+    def get_all_admins(self):
+        """Obtiene todos los usuarios administradores"""
+        if self.admins_collection is None:
+            return []
+
+        try:
+            admins = list(self.admins_collection.find({}))
+            return admins
+        except Exception as e:
+            print(f"❌ Error obteniendo administradores: {e}")
+            return []
+
+    # =============================================
+    # MÉTODOS DE UTILIDAD
+    # =============================================
+
+    def initialize_default_data(self):
+        """Inicializa datos por defecto en la base de datos"""
+        try:
+            # Crear un usuario administrador por defecto si no existe
+            if self.admins_collection is not None:
+                default_admin = self.admins_collection.find_one({"username": "admin"})
+                if not default_admin:
+                    self.create_admin_user("admin", "admin@codecoach.com")
+                    print("✅ Usuario administrador 'admin' creado por defecto")
+
+            # Verificar si hay problemas en la base de datos
+            if self.problems_collection is not None:
+                problem_count = self.problems_collection.count_documents({})
+                print(f"📊 Número de problemas en la base de datos: {problem_count}")
+
+            return True
+
+        except Exception as e:
+            print(f"❌ Error inicializando datos por defecto: {e}")
+            return False
+
     def close_connection(self):
         """Cierra la conexión con MongoDB"""
         if self.client:
             self.client.close()
             print("✅ Conexión MongoDB cerrada")
+
+    def get_database_status(self):
+        """Obtiene el estado de la base de datos"""
+        status = {
+            "connected": self.client is not None,
+            "collections": {}
+        }
+
+        if self.client:
+            try:
+                collections = self.db.list_collection_names()
+                for collection_name in ["users", "problems", "user_stats", "admins"]:
+                    status["collections"][collection_name] = collection_name in collections
+
+                    # Contar documentos si la colección existe
+                    if collection_name in collections:
+                        collection = self.db[collection_name]
+                        count = collection.count_documents({})
+                        status["collections"][f"{collection_name}_count"] = count
+            except Exception as e:
+                status["error"] = str(e)
+
+        return status

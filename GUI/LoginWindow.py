@@ -27,6 +27,9 @@ except ImportError as e:
             return True, "Login exitoso (modo dummy)", None
         def get_user_data(self, username):
             return None
+        def is_user_admin(self, username):
+            # En modo dummy, verificar si el usuario contiene "admin"
+            return "admin" in username.lower()
 
     class User:
         def __init__(self, username=""):
@@ -236,7 +239,11 @@ class LoginWindow(QMainWindow):
             success, message, user = self.auth_manager.validate_login(username, password)
 
             if success:
-                self.open_main_window(user)
+                # Verificar si el usuario es administrador
+                is_admin = self.auth_manager.is_user_admin(username)
+                if is_admin:
+                    print(f"👑 Usuario {username} identificado como administrador")
+                self.open_main_window(user, is_admin)
             else:
                 self.show_message("Error", message)
 
@@ -264,7 +271,8 @@ class LoginWindow(QMainWindow):
             success, message, user = self.auth_manager.create_user(username, password)
 
             if success:
-                self.open_main_window(user)
+                # Nuevos usuarios no son administradores por defecto
+                self.open_main_window(user, False)
             else:
                 self.show_message("Error", message)
 
@@ -315,15 +323,18 @@ class LoginWindow(QMainWindow):
             self.move(event.globalPos() - self.drag_start_position)
             event.accept()
 
-    def open_main_window(self, user):
+    def open_main_window(self, user, is_admin=False):
         """Abre la ventana principal y cierra el login"""
         try:
             from AuxCreator import ModernMainWindow
 
             self.main_window = ModernMainWindow()
             self.main_window.logged_in_user = user
+            self.main_window.is_admin = is_admin  # Pasar información de admin
 
             print(f"🎮 Iniciando sesión como: {user.username}")
+            if is_admin:
+                print("👑 Modo administrador activado")
             print(f"📊 Stats iniciales: {user.puntaje_total} puntos, {user.problemas_resueltos} problemas")
 
             self.main_window.show()
