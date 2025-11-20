@@ -286,12 +286,16 @@ std::string runner::evaluate_submission(const std::string &jsonContent, const st
     if (r.tests.empty()) {
         out["status"] = "success";
         out["message"] = "Compilación exitosa (sin tests definidos)";
-    } else if (passedCount == (int)r.tests.size()) {
-        out["status"] = "success";
-        out["message"] = "Todos los tests pasaron";
     } else {
-        out["status"] = "failed";
-        out["message"] = "Algunos tests fallaron";
+        std::ostringstream msg;
+        msg << "Estado: " << ((passedCount == (int)r.tests.size()) ? "Código correcto" : "Código incorrecto") << "\n";
+        for (size_t i = 0; i < r.tests.size(); ++i) {
+            msg << "Input: " << r.tests[i].first
+                << " | Output esperado: " << r.tests[i].second
+                << " | Output obtenido: " << out["results"][i]["stdout"].get<std::string>() << "\n";
+        }
+        out["status"] = (passedCount == (int)r.tests.size()) ? "success" : "failed";
+        out["message"] = msg.str();
     }
 
     auto tend = high_resolution_clock::now();
