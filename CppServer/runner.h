@@ -30,14 +30,16 @@ struct CompileResult {
 
 struct EvalRequest {
     std::string submission_id;
-    std::string source;     // Se mapea desde "codigo"
-    std::string filename;   // Por defecto main.cpp
+    std::string user_code;    // Codigo del usuario (solo la funcion)
+    std::string function_name; // Nombre de la funcion a llamar (ej: "esPalindromo")
+    std::string filename;     // Por defecto main.cpp
+    
     int compile_timeout_s = 10;
     int run_timeout_s = 2;
-    uint64_t memory_limit_bytes = 128ULL * 1024 * 1024;
-    std::string compare_mode = "normalize"; 
     
-    // Vector de pares (stdin, expected_stdout)
+    // Vector de pares (input_arg_code, expected_stdout)
+    // Nota: input_arg_code se inyectará tal cual en el código C++.
+    // Si es string debe venir con comillas desde el JSON o manejarse aqui.
     std::vector<std::pair<std::string,std::string>> tests;
 };
 

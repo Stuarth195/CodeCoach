@@ -15,6 +15,7 @@ private:
     std::string codigo;
     std::string problem_title;
     std::string difficulty;
+    std::string function_name;
     std::string input1;
     std::string input2;
     std::string input3;
@@ -29,6 +30,7 @@ public:
     std::string getNombre() const;
     std::string getCodigo() const;
     std::string getProblemTitle() const;
+    std::string getFunctionName() const;
     std::string getDifficulty() const;
     
     // Inputs

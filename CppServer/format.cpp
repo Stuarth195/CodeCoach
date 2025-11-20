@@ -29,6 +29,14 @@ void Format::inicializarDesdeJson(const json &j)
     nombre = extraerCampo(j, "nombre");
     codigo = extraerCampo(j, "codigo");
     problem_title = extraerCampo(j, "problem_title");
+    // Intentamos obtener function_name, si no existe usamos problem_title como fallback
+    // o asumimos que viene en el campo "function_name"
+    function_name = extraerCampo(j, "function_name");
+    if (function_name == "NO_ENCONTRADO") {
+        // Fallback opcional: usar problem_title si el JSON no trae function_name explicitamente
+        // Se asume que problem_title no tiene espacios si se usa como funcion
+        function_name = problem_title; 
+    }
     difficulty = extraerCampo(j, "difficulty");
     input1 = extraerCampo(j, "input1");
     input2 = extraerCampo(j, "input2");
@@ -41,6 +49,7 @@ void Format::inicializarDesdeJson(const json &j)
 std::string Format::getNombre() const { return nombre; }
 std::string Format::getCodigo() const { return codigo; }
 std::string Format::getProblemTitle() const { return problem_title; }
+std::string Format::getFunctionName() const { return function_name; }
 std::string Format::getDifficulty() const { return difficulty; }
 std::string Format::getInput1() const { return input1; }
 std::string Format::getInput2() const { return input2; }
@@ -82,6 +91,7 @@ void Format::mostrarInformacion() const
     std::cout << "   📝 Problema: " << problem_title << std::endl;
     std::cout << "   📄 Código (snippet): " << codigo.substr(0, std::min(50, (int)codigo.length())) << "..." << std::endl;
     std::cout << "   ✅ Válido: " << (esValido() ? "Si" : "No") << std::endl;
+    std::cout << "   Funcion: " << function_name << std::endl;
 }
 
 std::string Format::extraerCampo(const json &j, const std::string &campo)
