@@ -754,7 +754,7 @@ class ModernMainWindow(QMainWindow):
 
         self.current_problem_data = problem_info
         self.update_problem_display(problem_info)
-    
+
     def get_current_code(self):
         """Obtiene el código actual del editor"""
         if hasattr(self, 'code_editor'):
@@ -808,19 +808,51 @@ class ModernMainWindow(QMainWindow):
             }
 
     def show_output(self, result):
-        """Muestra el resultado de la evaluación en la terminal"""
-        status = result.get('status', 'unknown')
-        message = result.get('message', 'No message provided.')
-        details = result.get('details', '')
-        output = result.get('output', '')
+        """Muestra el resultado de la evaluación en la terminal y procesa para estadísticas"""
 
+        # Extraer todos los campos de la nueva estructura
+        status = result.get('status', 'unknown')
+        summary = result.get('summary', 'No summary provided')
+        passed_count = result.get('passed_count', 0)
+        total_tests = result.get('total_tests', 0)
+        score = result.get('score', 0)
+        problem_solved = result.get('problem_solved', False)
+        compilation_output = result.get('compilation_output', '')
+        execution_output = result.get('execution_output', '')
+        execution_time = result.get('execution_time_ms', 0)
+        tests = result.get('tests', [])
+
+        # Determinar color para la terminal
         if status == "success":
             color = "#00ff00"
-        elif status in ["error", "connection_error", "server_error", "runtime_error"]:
+        elif status in ["error", "compile_error", "runtime_error"]:
             color = "#ff0000"
         else:
             color = "#ffff00"
 
+        # Construir display completo
+        display_text = f"Estado: {status}\n"
+        display_text += f"Resumen: {summary}\n"
+        display_text += f"Puntaje: {score} puntos\n"
+        display_text += f"Tiempo de ejecución: {execution_time}ms\n"
+        display_text += f"Problema resuelto: {'Sí' if problem_solved else 'No'}\n\n"
+
+        # Detalles de pruebas
+        if tests:
+            display_text += "Detalles de pruebas:\n"
+            for test in tests:
+                test_id = test.get('test_id', 'N/A')
+                input_val = test.get('input', 'N/A')
+                obtained = test.get('obtained', 'N/A')
+                passed = test.get('passed', False)
+                status_icon = "✅" if passed else "❌"
+                display_text += f"  {status_icon} Prueba {test_id}: Input={input_val}, Obtenido={obtained}\n"
+
+        # Información de compilación si hay error
+        if compilation_output and status == "compile_error":
+            display_text += f"\nSalida de compilación:\n{compilation_output}"
+
+        # Actualizar interfaz
         self.terminal_output.setStyleSheet(f"""
             QTextEdit {{
                 font-family: 'JetBrains Mono', 'Consolas', monospace;
@@ -832,13 +864,21 @@ class ModernMainWindow(QMainWindow):
             }}
         """)
 
-        display_text = f"Estado: {status}\nMensaje: {message}\n"
-        if details:
-            display_text += f"Detalles: {details}\n"
-        if output:
-            display_text += f"Salida:\n{output}"
-
         self.terminal_output.setText(display_text)
+
+        # Devolver estructura completa para uso externo
+        return {
+            'status': status,
+            'summary': summary,
+            'passed_count': passed_count,
+            'total_tests': total_tests,
+            'score': score,
+            'problem_solved': problem_solved,
+            'tests': tests,
+            'execution_time': execution_time,
+            'compilation_output': compilation_output,
+            'execution_output': execution_output
+        }
 
     def setup_default_code_template(self):
         """Pone un código C++ de ejemplo en el editor"""
@@ -1008,7 +1048,6 @@ int main() {
             self.show_output({"status": "error", "message": "El editor está vacío"})
             return
 
-        # VERIFICACIÓN MEJORADA: Asegurar que hay un problema seleccionado
         if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
             self.show_output({
                 "status": "error",
@@ -1018,19 +1057,46 @@ int main() {
 
         try:
             result = self.send_raw_cpp_code(codigo_cpp)
-            self.show_output(result)
+            detailed_result = self.show_output(result)  # Ahora retorna la estructura completa
 
             # Actualizar MongoDB si la solución es correcta
-            if result.get('status') == 'success':
+            if detailed_result.get('problem_solved'):
                 if hasattr(self, 'current_problem_data') and self.current_problem_data:
                     success = self.update_user_progress_after_solution(self.current_problem_data)
                     if success:
                         print("🎉 ¡Progreso guardado en MongoDB!")
+                        # Aquí puedes usar detailed_result para estadísticas adicionales
+                        score = detailed_result.get('score', 0)
+                        print(f"📊 Puntaje obtenido: {score}")
                     else:
                         print("⚠️  Solución correcta pero no se pudo guardar el progreso")
 
+            # Enviar a API de IA para retroalimentación
+            self.send_to_ai_feedback(detailed_result, codigo_cpp)
+
         except Exception as e:
             print(f"Error en submit_code_for_evaluation: {e}")
+
+    def seto_ai_feedbacknd_(self, detailed_result, user_code):
+        """Envía resultados a API de IA para retroalimentación"""
+        try:
+            # Preparar datos para IA
+            ai_data = {
+                'user_code': user_code,
+                'test_results': detailed_result.get('tests', []),
+                'score': detailed_result.get('score', 0),
+                'passed_count': detailed_result.get('passed_count', 0),
+                'total_tests': detailed_result.get('total_tests', 0),
+                'execution_time': detailed_result.get('execution_time', 0),
+                'problem_solved': detailed_result.get('problem_solved', False)
+            }
+
+            # Aquí iría la llamada a tu API de IA
+            print("🤖 Enviando datos a API de IA para retroalimentación...")
+            # requests.post('https://tu-api-ia.com/feedback', json=ai_data)
+
+        except Exception as e:
+            print(f"Error enviando a IA: {e}")
 
     def create_payload_with_real_data(self, codigo_cpp: str, user_name: str):
         """Crea el payload usando los datos REALES del problema actual desde MongoDB"""

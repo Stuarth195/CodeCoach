@@ -15,45 +15,39 @@ int main()
 
     RequestHandler handler;
 
-    // Endpoint principal: Evaluar código
     handler.addRoute("/submit_evaluation", [](const std::string &requestBody)
-    {
-        std::cout << "\n🎯 ===== EVALUACIÓN SOLICITADA =====" << std::endl;
-        
-        // 1. Analizar formato para loguear y validar
-        Format formulario(requestBody);
-        
-        if (!formulario.esValido()) {
-            std::cout << "❌ ERROR: JSON inválido o faltan campos." << std::endl;
-            json errorResponse;
-            errorResponse["status"] = "error";
-            errorResponse["message"] = "Estructura JSON inválida (requiere nombre y codigo)";
-            return errorResponse.dump();
-        }
-        
-        formulario.mostrarInformacion();
-        
-        std::cout << "⚙️  Invocando Runner (compilación y ejecución)..." << std::endl;
-        
-        // 2. Llamar a la lógica del runner
-        // Pasamos el JSON crudo, el runner se encarga de extraer inputs/outputs
-        std::string runnerJsonResult = runner::evaluate_submission(requestBody);
-        
-        std::cout << "✅ Runner finalizado." << std::endl;
-        
-        // 3. Retornar directamente la respuesta del runner
-        // (O podrías envolverla si necesitas añadir metadatos del servidor)
-        return runnerJsonResult;
-    });
+                     {
+    std::cout << "\n🎯 ===== EVALUACIÓN SOLICITADA =====" << std::endl;
+    
+    Format formulario(requestBody);
+    
+    if (!formulario.esValido()) {
+        std::cout << "❌ ERROR: JSON inválido o faltan campos." << std::endl;
+        json errorResponse;
+        errorResponse["status"] = "error";
+        errorResponse["message"] = "Estructura JSON inválida (requiere nombre y codigo)";
+        return errorResponse.dump();
+    }
+    
+    formulario.mostrarInformacion();
+    
+    std::cout << "⚙️  Invocando Runner (compilación y ejecución)..." << std::endl;
+    
+    // Usar el namespace runner::
+    runner::EvaluationResult detailed_result = runner::evaluate_submission_detailed(requestBody);
+    std::string json_response = runner::evaluation_result_to_json(detailed_result);
+    
+    std::cout << "✅ Runner finalizado. Resultado: " << detailed_result.status << std::endl;
+    
+    return json_response; });
 
     // Endpoint auxiliar: Compilación simple (sin tests)
     handler.addRoute("/submit_code", [](const std::string &requestBody)
-    {
+                     {
         std::cout << "\n📥 Compilación simple recibida." << std::endl;
         // Reutilizamos el runner, este detectará que no hay inputs si no se envían
         // y solo compilará.
-        return runner::evaluate_submission(requestBody);
-    });
+        return runner::evaluate_submission(requestBody); });
 
     handler.startServer(5000);
 
