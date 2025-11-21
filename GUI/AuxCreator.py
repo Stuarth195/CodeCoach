@@ -754,69 +754,12 @@ class ModernMainWindow(QMainWindow):
 
         self.current_problem_data = problem_info
         self.update_problem_display(problem_info)
-
-    def update_problem_display(self, problem_info):
-        """Actualiza la visualización del problema en la GUI"""
-        title = problem_info.get('title', 'Sin título')
-        statement = problem_info.get('statement', 'Descripción no disponible.')
-        difficulty = problem_info.get('difficulty', 'Desconocida')
-        category = problem_info.get('category', 'Sin categoría')
-
-        description_html = f"""
-        <div style="color: #ddd; line-height: 1.6;">
-            <p><b>Dificultad:</b> {difficulty}</p>
-            <p><b>Categoría:</b> {category}</p>
-            <p><b>Enunciado:</b> {statement}</p>
-        """
-
-        examples = problem_info.get('examples', [])
-        if examples:
-            description_html += "<p><b>Ejemplos para testing:</b></p>"
-            for i, example in enumerate(examples, 1):
-                input_raw = example.get('input_raw', 'N/A')
-                output_raw = example.get('output_raw', 'N/A')
-
-                description_html += f"""
-                <div style="margin: 10px 0; padding: 10px; background: #1a1a1f; border-radius: 5px;">
-                    <b>Ejemplo {i}:</b><br>
-                    <b>Input:</b> {input_raw}<br>
-                    <b>Output esperado:</b> {output_raw}
-                </div>
-                """
-
-        description_html += "</div>"
-
-        self.problem_section_title.setText(title)
-        self.problem_section_desc.setText(description_html)
-
+    
     def get_current_code(self):
         """Obtiene el código actual del editor"""
         if hasattr(self, 'code_editor'):
             return self.code_editor.toPlainText().strip()
         return ""
-
-    def submit_code_for_evaluation(self):
-        """Envía código para evaluación y actualiza progreso si es exitoso"""
-        codigo_cpp = self.get_current_code()
-        if not codigo_cpp:
-            self.show_output({"status": "error", "message": "El editor está vacío"})
-            return
-
-        try:
-            result = self.send_raw_cpp_code(codigo_cpp)
-            self.show_output(result)
-
-            # Actualizar MongoDB si la solución es correcta
-            if result.get('status') == 'success':
-                if hasattr(self, 'current_problem_data') and self.current_problem_data:
-                    success = self.update_user_progress_after_solution(self.current_problem_data)
-                    if success:
-                        print("🎉 ¡Progreso guardado en MongoDB!")
-                    else:
-                        print("⚠️  Solución correcta pero no se pudo guardar el progreso")
-
-        except Exception as e:
-            print(f"Error en submit_code_for_evaluation: {e}")
 
     def send_raw_cpp_code(self, codigo_cpp: str):
         """Envía el código C++ en bruto al servidor CON LOS DATOS REALES DE MONGODB"""
@@ -863,58 +806,6 @@ class ModernMainWindow(QMainWindow):
                 "status": "critical_error",
                 "message": error_msg
             }
-
-    def create_payload_with_real_data(self, codigo_cpp: str, user_name: str):
-        """Crea el payload usando los datos REALES del problema actual desde MongoDB"""
-        if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
-            print("⚠️  No hay problema seleccionado, usando datos de prueba")
-            return self.create_dummy_payload(codigo_cpp, user_name)
-
-        problem_data = self.current_problem_data
-        examples = problem_data.get('examples', [])
-
-        print(f"🔍 Extrayendo datos REALES del problema: {problem_data.get('title', 'N/A')}")
-        print(f"   - Número de ejemplos encontrados: {len(examples)}")
-
-        payload = {
-            "nombre": user_name,
-            "codigo": codigo_cpp,
-            "problem_title": problem_data.get('title', 'Problema sin título'),
-            "difficulty": problem_data.get('difficulty', 'Desconocida')
-        }
-
-        for i, example in enumerate(examples[:3], 1):
-            input_key = f"input{i}"
-            output_key = f"output_esperado{i}"
-
-            input_val = example.get('input_raw', '')
-            output_val = example.get('output_raw', '')
-
-            payload[input_key] = input_val
-            payload[output_key] = output_val
-
-            print(f"   - Ejemplo {i}: Input='{input_val}', Output='{output_val}'")
-
-        for i in range(len(examples) + 1, 4):
-            payload[f"input{i}"] = ""
-            payload[f"output_esperado{i}"] = ""
-
-        return payload
-
-    def create_dummy_payload(self, codigo_cpp: str, user_name: str):
-        """Crea payload con datos de prueba (fallback)"""
-        return {
-            "nombre": user_name,
-            "codigo": codigo_cpp,
-            "input1": "5",
-            "input2": "10",
-            "input3": "15",
-            "output_esperado1": "25",
-            "output_esperado2": "100",
-            "output_esperado3": "225",
-            "problem_title": "Problema de Prueba",
-            "difficulty": "Fácil"
-        }
 
     def show_output(self, result):
         """Muestra el resultado de la evaluación en la terminal"""
@@ -1110,6 +1001,112 @@ int main() {
             print(f"❌ Error actualizando progreso: {e}")
             return False
 
+    def submit_code_for_evaluation(self):
+        """Envía código para evaluación y actualiza progreso si es exitoso"""
+        codigo_cpp = self.get_current_code()
+        if not codigo_cpp:
+            self.show_output({"status": "error", "message": "El editor está vacío"})
+            return
+
+        # VERIFICACIÓN MEJORADA: Asegurar que hay un problema seleccionado
+        if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
+            self.show_output({
+                "status": "error",
+                "message": "Selecciona un problema de la lista antes de enviar"
+            })
+            return
+
+        try:
+            result = self.send_raw_cpp_code(codigo_cpp)
+            self.show_output(result)
+
+            # Actualizar MongoDB si la solución es correcta
+            if result.get('status') == 'success':
+                if hasattr(self, 'current_problem_data') and self.current_problem_data:
+                    success = self.update_user_progress_after_solution(self.current_problem_data)
+                    if success:
+                        print("🎉 ¡Progreso guardado en MongoDB!")
+                    else:
+                        print("⚠️  Solución correcta pero no se pudo guardar el progreso")
+
+        except Exception as e:
+            print(f"Error en submit_code_for_evaluation: {e}")
+
+    def create_payload_with_real_data(self, codigo_cpp: str, user_name: str):
+        """Crea el payload usando los datos REALES del problema actual desde MongoDB"""
+        if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
+            print("⚠️  No hay problema seleccionado, usando datos de prueba")
+            return self.create_dummy_payload(codigo_cpp, user_name)
+
+        problem_data = self.current_problem_data
+        examples = problem_data.get('examples', [])
+
+        print(f"🔍 Extrayendo datos REALES del problema: {problem_data.get('title', 'N/A')}")
+        print(f"   - Número de ejemplos encontrados: {len(examples)}")
+
+        # Construir payload con TODOS los datos reales
+        payload = {
+            "nombre": user_name,
+            "codigo": codigo_cpp,
+            "problem_title": problem_data.get('title', 'Problema sin título'),
+            "difficulty": problem_data.get('difficulty', 'Desconocida'),
+            "category": problem_data.get('category', 'Sin categoría'),
+            "statement": problem_data.get('statement', 'Sin descripción'),
+            "big_o_expected": problem_data.get('big_o_expected', 'O(n)')
+        }
+
+        # Agregar todos los ejemplos disponibles (no limitar a 3)
+        for i, example in enumerate(examples, 1):
+            input_key = f"input{i}"
+            output_key = f"output_esperado{i}"
+
+            input_val = example.get('input_raw', '')
+            output_val = example.get('output_raw', '')
+
+            payload[input_key] = input_val
+            payload[output_key] = output_val
+
+            print(f"   - Ejemplo {i}: Input='{input_val}', Output='{output_val}'")
+
+        return payload
+
+    def update_problem_display(self, problem_info):
+        """Actualiza la visualización del problema en la GUI"""
+        title = problem_info.get('title', 'Sin título')
+        statement = problem_info.get('statement', 'Descripción no disponible.')
+        difficulty = problem_info.get('difficulty', 'Desconocida')
+        category = problem_info.get('category', 'Sin categoría')
+        big_o = problem_info.get('big_o_expected', 'No especificado')
+
+        description_html = f"""
+        <div style="color: #ddd; line-height: 1.6;">
+            <p><b>Dificultad:</b> {difficulty}</p>
+            <p><b>Categoría:</b> {category}</p>
+            <p><b>Complejidad Esperada:</b> {big_o}</p>
+            <p><b>Enunciado:</b> {statement}</p>
+        """
+
+        examples = problem_info.get('examples', [])
+        if examples:
+            description_html += "<p><b>Ejemplos para testing:</b></p>"
+            for i, example in enumerate(examples, 1):
+                input_raw = example.get('input_raw', 'N/A')
+                output_raw = example.get('output_raw', 'N/A')
+                explanation = example.get('explanation', '')
+
+                description_html += f"""
+                <div style="margin: 10px 0; padding: 10px; background: #1a1a1f; border-radius: 5px;">
+                    <b>Ejemplo {i}:</b><br>
+                    <b>Input:</b> {input_raw}<br>
+                    <b>Output esperado:</b> {output_raw}<br>
+                    <b>Explicación:</b> {explanation}
+                </div>
+                """
+
+        description_html += "</div>"
+
+        self.problem_section_title.setText(title)
+        self.problem_section_desc.setText(description_html)
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = ModernMainWindow()
