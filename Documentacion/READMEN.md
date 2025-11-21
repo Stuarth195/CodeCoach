@@ -47,35 +47,6 @@ cd /c/Users/shoko/OneDrive/Documents/progra/Repositorilos_GitHub/CodeCoach/CppSe
 ./compile.sh
 ```
 
-## 🧪 Probar el Servidor
-
-### Código C++ de Prueba para la GUI
-
-```cpp
-#include <iostream>
-using namespace std;
-
-int main() {
-    cout << "🚀 Hello from CodeCoach!" << endl;
-    cout << "✅ Server is working!" << endl;
-    return 0;
-}
-```
-
-## ⚠️ Solución de Problemas
-
-### Si hay errores de compilación:
-
-```bash
-# Limpiar build anterior
-rm -rf build
-
-# Recompilar con CMake
-mkdir build && cd build
-cmake -G "MinGW Makefiles" ..
-make
-```
-
 ### Verificar instalación:
 
 ```bash
@@ -86,7 +57,7 @@ cmake --version
 
 ## 📝 Notas Importantes
 
-- **Siempre usar MSYS2 MINGW64** (terminal verde)
+- **Siempre usar MSYS2 MINGW64** (terminal Azul)
 - **Ejecutar servidor primero**, luego las pruebas
 - El servidor escucha en: `http://localhost:5000`
 
