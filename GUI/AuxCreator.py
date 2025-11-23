@@ -1200,37 +1200,103 @@ class ModernMainWindow(QMainWindow):
         }
 
     def setup_default_code_template(self):
-        """Pone un código C++ de ejemplo en el editor"""
-        default_code = """#include <iostream>
-#include <vector>
-#include <string>
-using namespace std;
+        """Pone un código C++ apropiado según el tipo de problema"""
 
-// Función que quieres probar
-int suma(int a, int b) {
-    return a + b;
-}
+        if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
+            # Template genérico
+            default_code = """#include <iostream>
+    #include <vector>
+    #include <string>
+    using namespace std;
 
-// Función para procesar strings
-string procesarTexto(string texto) {
-    return "Procesado: " + texto;
-}
+    // Escribe tu solución aquí
 
-int main() {
-    // Ejemplo de uso
-    int resultado = suma(5, 3);
-    cout << "5 + 3 = " << resultado << endl;
+    int main() {
+        // Ejemplo de uso
+        cout << "Hello World" << endl;
+        return 0;
+    }"""
+        else:
+            problem_type = self.current_problem_data.get('function_type', 'string')
 
-    string texto = procesarTexto("Hola Mundo");
-    cout << texto << endl;
+            if problem_type == "bool":
+                default_code = """#include <iostream>
+    #include <string>
+    using namespace std;
 
-    return 0;
-}"""
+    bool miFuncion(bool entrada) {
+        // Tu lógica aquí
+        // Retorna true (1) o false (0)
+        return true; // ejemplo
+    }
+
+    int main() {
+        // Ejemplo
+        bool resultado = miFuncion(true);
+        cout << (resultado ? "1" : "0") << endl;
+        return 0;
+    }"""
+            elif problem_type == "int":
+                default_code = """#include <iostream>
+    using namespace std;
+
+    int miFuncion(int entrada) {
+        // Tu lógica aquí
+        return entrada * 2; // ejemplo
+    }
+
+    int main() {
+        // Ejemplo
+        int resultado = miFuncion(5);
+        cout << resultado << endl;
+        return 0;
+    }"""
+            elif problem_type == "array":
+                default_code = """#include <iostream>
+    #include <vector>
+    using namespace std;
+
+    vector<int> miFuncion(vector<int> entrada) {
+        // Tu lógica aquí
+        return entrada; // ejemplo
+    }
+
+    int main() {
+        // Ejemplo
+        vector<int> input = {1, 2, 3};
+        vector<int> resultado = miFuncion(input);
+
+        // Mostrar resultado
+        cout << "[";
+        for (int i = 0; i < resultado.size(); i++) {
+            cout << resultado[i];
+            if (i < resultado.size() - 1) cout << ",";
+        }
+        cout << "]" << endl;
+
+        return 0;
+    }"""
+            else:  # string
+                default_code = """#include <iostream>
+    #include <string>
+    using namespace std;
+
+    string miFuncion(string entrada) {
+        // Tu lógica aquí
+        return "Procesado: " + entrada; // ejemplo
+    }
+
+    int main() {
+        // Ejemplo
+        string resultado = miFuncion("Hola");
+        cout << resultado << endl;
+        return 0;
+    }"""
 
         if hasattr(self, 'code_editor'):
             self.code_editor.setPlainText(default_code)
             self.code_base_loaded = True
-            print("✅ Código base cargado en el editor")
+            print("✅ Código template cargado según tipo de problema")
 
     def setup_actions(self):
         """CONECTA LOS BOTONES A SUS MÉTODOS CORRESPONDIENTES"""

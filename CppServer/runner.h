@@ -1,3 +1,4 @@
+// runner.h
 #pragma once
 
 // runner.h
@@ -10,6 +11,7 @@
 
 namespace runner
 {
+    // ... (estructuras existentes)
 
     // Estructuras de datos para resultados internos
     struct TestResult
@@ -21,7 +23,7 @@ namespace runner
         std::string stdout_str;
         std::string stderr_str;
     };
-    // Agregar después de las estructuras existentes
+
     struct EvaluationResult
     {
         std::string status;
@@ -37,9 +39,6 @@ namespace runner
         std::chrono::milliseconds execution_time;
     };
 
-    // Nuevas funciones a agregar
-    EvaluationResult evaluate_submission_detailed(const std::string &jsonContent, const std::string &gpp_exe = "g++");
-    std::string evaluation_result_to_json(const EvaluationResult &result);
     struct CompileResult
     {
         bool ok = false;
@@ -65,8 +64,13 @@ namespace runner
         // Si es string debe venir con comillas desde el JSON o manejarse aqui.
         std::vector<std::pair<std::string, std::string>> tests;
     };
-    // Función principal integrada:
-    // Recibe el contenido JSON raw (requestBody), compila, ejecuta y retorna JSON string con resultados.
+
+    // ✅ AGREGAR DECLARACIÓN DE generate_full_source
+    std::string generate_full_source(const EvalRequest &req);
+
+    // Funciones principales
+    EvaluationResult evaluate_submission_detailed(const std::string &jsonContent, const std::string &gpp_exe = "g++");
+    std::string evaluation_result_to_json(const EvaluationResult &result);
     std::string evaluate_submission(const std::string &jsonContent, const std::string &gpp_exe = "g++");
 
 } // namespace runner

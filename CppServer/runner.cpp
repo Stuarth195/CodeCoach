@@ -11,13 +11,117 @@
 
 #include "runner.h"
 #include "json.hpp"
+#include "OutputNormalizer.h"
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 using namespace std::chrono;
 using namespace runner;
+// runner.cpp - REEMPLAZAR la función generate_full_source:
 
-// --- Utilería interna ---
+namespace runner
+{
+
+    std::string generate_full_source(const EvalRequest &req)
+    {
+        std::ostringstream src;
+
+        // 1. Headers
+        src << "#include <iostream>\n";
+        src << "#include <string>\n";
+        src << "#include <sstream>\n";
+        src << "#include <vector>\n";
+        src << "#include <algorithm>\n";
+        src << "using namespace std;\n\n";
+
+        // 2. Código del usuario
+        src << "// --- User Code ---\n";
+        src << req.user_code << "\n";
+        src << "// -----------------\n\n";
+
+        // 3. Helper para arrays
+        src << "// Helper para convertir string a vector<int>\n";
+        src << "vector<int> stringToVector(const string& str) {\n";
+        src << "    vector<int> result;\n";
+        src << "    if (str.empty() || str == \"[]\") return result;\n";
+        src << "    string clean_str = str.substr(1, str.length() - 2);\n";
+        src << "    stringstream ss(clean_str);\n";
+        src << "    string token;\n";
+        src << "    while (getline(ss, token, ',')) {\n";
+        src << "        result.push_back(stoi(token));\n";
+        src << "    }\n";
+        src << "    return result;\n";
+        src << "}\n\n";
+
+        src << "// Helper para convertir vector<int> a string\n";
+        src << "string vectorToString(const vector<int>& vec) {\n";
+        src << "    string result = \"[\";\n";
+        src << "    for (size_t i = 0; i < vec.size(); i++) {\n";
+        src << "        result += to_string(vec[i]);\n";
+        src << "        if (i < vec.size() - 1) result += \",\";\n";
+        src << "    }\n";
+        src << "    result += \"]\";\n";
+        src << "    return result;\n";
+        src << "}\n\n";
+
+        // 4. MAIN INTELIGENTE CON TIPOS CORRECTOS
+        src << "int main() {\n";
+
+        for (size_t i = 0; i < req.tests.size(); i++)
+        {
+            const auto &test = req.tests[i];
+            std::string input_val = test.first;
+
+            src << "    \n";
+            src << "    // Test " << (i + 1) << ": " << input_val << "\n";
+            src << "    try {\n";
+
+            // ✅ GENERACIÓN DE CÓDIGO ESPECÍFICA POR TIPO
+            if (req.function_type == "int")
+            {
+                src << "        int input_val = " << input_val << ";\n";
+                src << "        int result = " << req.function_name << "(input_val);\n";
+                src << "        cout << result << endl;\n";
+            }
+            else if (req.function_type == "double")
+            {
+                src << "        double input_val = " << input_val << ";\n";
+                src << "        double result = " << req.function_name << "(input_val);\n";
+                src << "        cout << result << endl;\n";
+            }
+            else if (req.function_type == "bool")
+            {
+                src << "        bool input_val = " << input_val << ";\n";
+                src << "        bool result = " << req.function_name << "(input_val);\n";
+                src << "        cout << (result ? \"1\" : \"0\") << endl;\n";
+            }
+            else if (req.function_type == "array")
+            {
+                src << "        vector<int> input_val = stringToVector(\"" << input_val << "\");\n";
+                src << "        vector<int> result = " << req.function_name << "(input_val);\n";
+                src << "        cout << vectorToString(result) << endl;\n";
+            }
+            else // string por defecto
+            {
+                src << "        string input_val = \"" << input_val << "\";\n";
+                src << "        string result = " << req.function_name << "(input_val);\n";
+                src << "        cout << result << endl;\n";
+            }
+
+            src << "    } catch(const exception& e) { \n";
+            src << "        cout << \"ERROR: \" << e.what() << endl; \n";
+            src << "    } catch(...) { \n";
+            src << "        cout << \"ERROR_RUNTIME\" << endl; \n";
+            src << "    }\n";
+        }
+
+        src << "    return 0;\n";
+        src << "}\n";
+
+        return src.str();
+    }
+
+} // namespace runner  // ✅ CERRAR EL NAMESPACE
 
 static void writeFileAll(const std::string &path, const std::string &content)
 {
@@ -34,103 +138,6 @@ static std::string cleanString(const std::string &s)
         return "";
     size_t last = s.find_last_not_of(" \t\r\n");
     return s.substr(first, (last - first + 1));
-}
-
-// runner.cpp - REEMPLAZAR la función generate_full_source completa:
-
-static std::string generate_full_source(const EvalRequest &req)
-{
-    std::ostringstream src;
-
-    // 1. Headers
-    src << "#include <iostream>\n";
-    src << "#include <string>\n";
-    src << "#include <sstream>\n";
-    src << "#include <vector>\n";
-    src << "#include <algorithm>\n";
-    src << "using namespace std;\n\n";
-
-    // 2. Código del usuario (Función)
-    src << "// --- User Code ---\n";
-    src << req.user_code << "\n";
-    src << "// -----------------\n\n";
-
-    // 3. Helper para arrays
-    src << "// Helper para convertir string a vector<int>\n";
-    src << "vector<int> stringToVector(const string& str) {\n";
-    src << "    vector<int> result;\n";
-    src << "    if (str.empty() || str == \"[]\") return result;\n";
-    src << "    string clean_str = str.substr(1, str.length() - 2);\n";
-    src << "    stringstream ss(clean_str);\n";
-    src << "    string token;\n";
-    src << "    while (getline(ss, token, ',')) {\n";
-    src << "        result.push_back(stoi(token));\n";
-    src << "    }\n";
-    src << "    return result;\n";
-    src << "}\n\n";
-
-    src << "// Helper para convertir vector<int> a string\n";
-    src << "string vectorToString(const vector<int>& vec) {\n";
-    src << "    string result = \"[\";\n";
-    src << "    for (size_t i = 0; i < vec.size(); i++) {\n";
-    src << "        result += to_string(vec[i]);\n";
-    src << "        if (i < vec.size() - 1) result += \",\";\n";
-    src << "    }\n";
-    src << "    result += \"]\";\n";
-    src << "    return result;\n";
-    src << "}\n\n";
-
-    // 4. MAIN INTELIGENTE QUE USA function_type CORRECTAMENTE
-    src << "int main() {\n";
-
-    for (size_t i = 0; i < req.tests.size(); i++)
-    {
-        const auto &test = req.tests[i];
-        std::string input_val = test.first;
-
-        src << "    \n";
-        src << "    // Test " << (i + 1) << ": " << input_val << "\n";
-        src << "    try {\n";
-
-        // ✅ CORREGIDO: Usar function_type del request
-        if (req.function_type == "int")
-        {
-            src << "        int input_val = " << input_val << ";\n";
-            src << "        cout << " << req.function_name << "(input_val) << endl;\n";
-        }
-        else if (req.function_type == "double")
-        {
-            src << "        double input_val = " << input_val << ";\n";
-            src << "        cout << " << req.function_name << "(input_val) << endl;\n";
-        }
-        else if (req.function_type == "bool")
-        {
-            src << "        bool input_val = " << input_val << ";\n";
-            src << "        cout << boolalpha << " << req.function_name << "(input_val) << endl;\n";
-        }
-        else if (req.function_type == "array")
-        {
-            src << "        vector<int> input_val = stringToVector(\"" << input_val << "\");\n";
-            src << "        vector<int> result = " << req.function_name << "(input_val);\n";
-            src << "        cout << vectorToString(result) << endl;\n";
-        }
-        else // string por defecto
-        {
-            src << "        string input_val = \"" << input_val << "\";\n";
-            src << "        cout << " << req.function_name << "(input_val) << endl;\n";
-        }
-
-        src << "    } catch(const exception& e) { \n";
-        src << "        cout << \"ERROR: \" << e.what() << endl; \n";
-        src << "    } catch(...) { \n";
-        src << "        cout << \"ERROR_RUNTIME\" << endl; \n";
-        src << "    }\n";
-    }
-
-    src << "    return 0;\n";
-    src << "}\n";
-
-    return src.str();
 }
 
 static bool run_process_capture(const std::string &cmdline, const std::string &workdir,
@@ -377,7 +384,7 @@ EvaluationResult runner::evaluate_submission_detailed(const std::string &jsonCon
         std::string obtained = (i < lines.size()) ? lines[i] : "Sin salida";
         std::string input_display = r.tests[i].first;
 
-        bool passed = (expected == obtained);
+        bool passed = OutputNormalizer::compare(expected, obtained, r.function_type);
         result.test_passed.push_back(passed);
         result.test_details.push_back({input_display, obtained});
 
