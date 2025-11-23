@@ -1,0 +1,13 @@
+# requirements.txt - CREAR este archivo en la raíz del proyecto
+PyQt5==5.15.9
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+transformers==4.36.2
+torch==2.1.1
+accelerate==0.25.0
+sentencepiece==0.1.99
+protobuf==3.20.3
+requests==2.31.0
+pymongo==4.5.0
+numpy==1.24.3

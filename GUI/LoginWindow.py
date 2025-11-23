@@ -12,29 +12,38 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve
 from PyQt5.QtGui import QPalette, QColor
 
-# Importar desde módulos de lógica
+# LoginWindow.py - AGREGAR al inicio después de los imports:
+import sys
+import os
+
+# Configurar path correctamente
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
+
+
 try:
     from logic.auth_logic import AuthManager
     from logic.user_models import User
     print("✅ Módulos de lógica importados correctamente")
 except ImportError as e:
     print(f"❌ Error importando módulos de lógica: {e}")
-    # Fallback para desarrollo
+    # Fallback para desarrollo - MÁS ROBUSTO
     class AuthManager:
         def create_user(self, username, password):
-            return True, "Usuario creado (modo dummy)", None
+            print(f"DUMMY: Creando usuario {username}")
+            return True, "Usuario creado (modo dummy)", User(username)
         def validate_login(self, username, password):
-            return True, "Login exitoso (modo dummy)", None
+            print(f"DUMMY: Validando {username}")
+            return True, "Login exitoso (modo dummy)", User(username)
         def get_user_data(self, username):
-            return None
+            return User(username)
 
     class User:
         def __init__(self, username=""):
             self.username = username
             self.puntaje_total = 0
             self.problemas_resueltos = 0
-
-
+            self.ejercicios_completados = []
 class LoginWindow(QMainWindow):
     def __init__(self):
         super().__init__()

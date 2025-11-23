@@ -19,10 +19,12 @@ class DatabaseHandler:
 
         self.connect()
 
+    # database_handler.py - MODIFICAR el método connect:
+
     def connect(self):
-        """Establece conexión con MongoDB"""
+        """Establece conexión con MongoDB con mejor manejo de errores"""
         MONGO_URI = "mongodb://localhost:27017/"
-        TIMEOUT_MS = 5000
+        TIMEOUT_MS = 3000  # Reducir timeout
 
         try:
             self.client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=TIMEOUT_MS)
@@ -30,23 +32,27 @@ class DatabaseHandler:
 
             # Usar codecoach_db para todo
             self.db = self.client["codecoach_db"]
+
+            # ✅ CREAR COLECCIONES SI NO EXISTEN
+            collections = self.db.list_collection_names()
+
+            if "users" not in collections:
+                self.db.create_collection("users")
+            if "problems" not in collections:
+                self.db.create_collection("problems")
+            if "user_stats" not in collections:
+                self.db.create_collection("user_stats")
+
             self.users_collection = self.db["users"]
             self.problems_collection = self.db["problems"]
             self.user_stats_collection = self.db["user_stats"]
 
-            # ✅ CORRECCIÓN: Inicializar como None si no existen las colecciones
-            if "users" not in self.db.list_collection_names():
-                self.users_collection = None
-            if "user_stats" not in self.db.list_collection_names():
-                self.user_stats_collection = None
-            if "problems" not in self.db.list_collection_names():
-                self.problems_collection = None
-
             print("✅ MongoDB conectado - Base de datos: codecoach_db")
-            print(f"   - Colecciones: users, problems, user_stats")
+            print(f"   - Colecciones: {self.db.list_collection_names()}")
 
         except ServerSelectionTimeoutError:
             print("❌ ERROR: No se pudo conectar a MongoDB - Verifica que esté ejecutándose")
+            print("💡 Solución: Ejecuta 'mongod' en una terminal o instala MongoDB")
             self.client = None
             self.users_collection = None
             self.user_stats_collection = None
@@ -57,7 +63,6 @@ class DatabaseHandler:
             self.users_collection = None
             self.user_stats_collection = None
             self.problems_collection = None
-
     # =============================================
     # MÉTODOS PARA USUARIOS
     # =============================================

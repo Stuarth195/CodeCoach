@@ -2,7 +2,10 @@
 import sys
 import os
 import threading
-
+# Añadir después de las importaciones existentes
+import requests
+import json
+from PyQt5.QtCore import QThread, pyqtSignal
 # Configurar paths
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
@@ -70,8 +73,90 @@ except ImportError as e:
         def reset_editor(self): print("Dummy reset_editor")
         def save_code(self): print("Dummy save_code")
         def open_section(self, name): print(f"Dummy open_section: {name}")
+import subprocess
+import time
+import threading
+from PyQt5.QtCore import QProcess
+
+
+class AIAnalysisThread(QThread):
+    """Hilo para manejar las solicitudes a la API de IA con reintentos"""
+    analysis_complete = pyqtSignal(dict)
+
+    def __init__(self, api_url, analysis_data):
+        super().__init__()
+        self.api_url = api_url
+        self.analysis_data = analysis_data
+
+    def run(self):
+        max_retries = 2
+        base_timeout = 30
+
+        for attempt in range(max_retries):
+            try:
+                current_timeout = base_timeout * (attempt + 1)  # Timeout progresivo
+                print(f"🤖 Intento {attempt + 1}/{max_retries} (timeout: {current_timeout}s)")
+
+                response = requests.post(
+                    self.api_url,
+                    json=self.analysis_data,
+                    timeout=current_timeout
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    print("✅ Respuesta de IA recibida exitosamente")
+                    self.analysis_complete.emit(result)
+                    return
+                else:
+                    error_msg = f"Error HTTP {response.status_code}: {response.text}"
+                    print(f"❌ {error_msg}")
+
+            except requests.exceptions.Timeout:
+                if attempt < max_retries - 1:
+                    print(f"⏰ Timeout en intento {attempt + 1}, reintentando...")
+                    continue
+                else:
+                    error_msg = "Todos los intentos agotaron el tiempo de espera"
+                    print(f"❌ {error_msg}")
+                    self.analysis_complete.emit({
+                        "status": "timeout_error",
+                        "message": error_msg,
+                        "feedback_completo": "El servidor de IA no responde. Puede estar cargando modelos grandes. Intenta en unos minutos."
+                    })
+                    return
+
+            except requests.exceptions.ConnectionError:
+                error_msg = "No se pudo conectar al servidor de IA"
+                print(f"❌ {error_msg}")
+                self.analysis_complete.emit({
+                    "status": "connection_error",
+                    "message": error_msg,
+                    "feedback_completo": "El servidor de IA no está disponible en localhost:8000"
+                })
+                return
+
+            except Exception as e:
+                error_msg = f"Error inesperado: {str(e)}"
+                print(f"❌ {error_msg}")
+                self.analysis_complete.emit({
+                    "status": "unexpected_error",
+                    "message": error_msg,
+                    "feedback_completo": f"Error inesperado: {str(e)}"
+                })
+                return
+
+        # Si llegamos aquí, todos los reintentos fallaron por timeout
+        self.analysis_complete.emit({
+            "status": "max_retries_exceeded",
+            "message": "Máximo número de reintentos alcanzado",
+            "feedback_completo": "No se pudo obtener respuesta del servidor de IA después de múltiples intentos."
+        })
+
 
 class ModernMainWindow(QMainWindow):
+    # AuxCreator.py - EN LA CLASE ModernMainWindow, MODIFICAR __init__:
+
     def __init__(self):
         super().__init__()
         self.current_section = None
@@ -96,6 +181,13 @@ class ModernMainWindow(QMainWindow):
             print(f"❌ Error en DatabaseHandler: {e}")
             self.db_handler = None
 
+        self.ai_api_url = "http://localhost:8000/analyze_solution"
+        self.ai_thread = None
+        self.ai_server_process = None
+        self.ai_server_started = False  # No iniciar automáticamente
+
+        # REMOVER esta línea: self.start_ai_server()
+
         self.diagnose_database()
         self.initUI()
         self.load_problems_into_sidebar()
@@ -103,6 +195,7 @@ class ModernMainWindow(QMainWindow):
         # Conectar la lista a una nueva función
         if hasattr(self, 'problems_list'):
             self.problems_list.itemClicked.connect(self.display_problem_details)
+
 
     def initUI(self):
         """Inicializa la interfaz de usuario con diseño moderno"""
@@ -135,6 +228,126 @@ class ModernMainWindow(QMainWindow):
 
         # Mostrar sección por defecto (Editor de Código)
         self.show_section("Editor")
+
+    def start_ai_server(self):
+        """Inicia el servidor de IA con mejor verificación"""
+        try:
+            print("🔧 Iniciando servidor de IA...")
+
+            # Verificar si el servidor ya está corriendo
+            if self.check_ai_server_running():
+                print("✅ Servidor de IA ya está ejecutándose")
+                self.ai_server_started = True
+                return True
+
+            # Verificar que el archivo de la API existe
+            if not os.path.exists("analizador_api.py"):
+                print("❌ Archivo analizador_api.py no encontrado")
+                return False
+
+            # Comando para iniciar el servidor FastAPI
+            cmd = [
+                sys.executable,
+                "-m", "uvicorn",
+                "analizador_api:app",
+                "--host", "127.0.0.1",  # Usar 127.0.0.1 en lugar de localhost
+                "--port", "8000",
+                "--reload"
+            ]
+
+            # Iniciar el proceso en segundo plano
+            self.ai_server_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+
+            # Hilo para monitorear la salida del servidor
+            monitor_thread = threading.Thread(target=self.monitor_ai_server_output)
+            monitor_thread.daemon = True
+            monitor_thread.start()
+
+            # Esperar a que el servidor esté listo (más tiempo)
+            print("⏳ Esperando a que el servidor de IA esté listo (hasta 60 segundos)...")
+            if self.wait_for_ai_server(timeout=60):  # Aumentar timeout a 60 segundos
+                print("✅ Servidor de IA iniciado exitosamente")
+                self.ai_server_started = True
+                return True
+            else:
+                print("❌ Timeout: Servidor de IA no respondió a tiempo")
+                return False
+
+        except Exception as e:
+            print(f"❌ Error iniciando servidor de IA: {e}")
+            return False
+
+    def check_ai_server_running(self):
+        """Verifica si el servidor de IA está corriendo"""
+        try:
+            response = requests.get("http://localhost:8000/docs", timeout=5)
+            return response.status_code == 200
+        except:
+            return False
+
+    def wait_for_ai_server(self, timeout=30):
+        """Espera a que el servidor de IA esté listo"""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if self.check_ai_server_running():
+                return True
+            time.sleep(2)  # Esperar 2 segundos entre intentos
+        return False
+
+    def monitor_ai_server_output(self):
+        """Monitorea la salida del servidor de IA en un hilo separado"""
+        try:
+            print("📡 Monitoreando servidor de IA...")
+            while self.ai_server_process and self.ai_server_process.poll() is None:
+                # Leer stdout
+                stdout_line = self.ai_server_process.stdout.readline()
+                if stdout_line:
+                    print(f"[AI Server] {stdout_line.strip()}")
+
+                # Leer stderr
+                stderr_line = self.ai_server_process.stderr.readline()
+                if stderr_line:
+                    print(f"[AI Server ERROR] {stderr_line.strip()}")
+
+        except Exception as e:
+            print(f"❌ Error monitoreando servidor IA: {e}")
+
+    def stop_ai_server(self):
+        """Detiene el servidor de IA cuando se cierra la aplicación"""
+        if self.ai_server_process:
+            print("🛑 Deteniendo servidor de IA...")
+            self.ai_server_process.terminate()
+            try:
+                self.ai_server_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.ai_server_process.kill()
+            print("✅ Servidor de IA detenido")
+
+    def show_ai_server_error(self, error_message):
+        """Muestra errores del servidor de IA en el panel correspondiente"""
+        error_display = f"""
+    ❌ ERROR DEL SERVIDOR DE IA
+
+    {error_message}
+
+    Solución automática intentada:
+    • Se intentó iniciar el servidor automáticamente
+    • Verificando dependencias...
+
+    Si el problema persiste:
+    1. Verifica que tengas instaladas todas las dependencias
+    2. Ejecuta manualmente: uvicorn analizador_api:app --reload --port 8000
+    3. Reinicia la aplicación
+    """
+        if hasattr(self, 'ai_feedback'):
+            self.ai_feedback.setPlainText(error_display)
 
     def create_central_stacked(self):
         """Crea el QStackedWidget para manejar las diferentes secciones"""
@@ -282,7 +495,7 @@ class ModernMainWindow(QMainWindow):
         return sidebar
 
     def create_coding_environment(self):
-        """Crea el entorno de programación con editor y terminal"""
+        """Crea el entorno de programación con editor, terminal y análisis de IA"""
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -322,9 +535,11 @@ class ModernMainWindow(QMainWindow):
 
         layout.addWidget(toolbar)
 
-        splitter = QSplitter(Qt.Vertical)
-        splitter.setStyleSheet("QSplitter::handle { background-color: #444; }")
+        # Splitter principal vertical
+        main_splitter = QSplitter(Qt.Vertical)
+        main_splitter.setStyleSheet("QSplitter::handle { background-color: #444; }")
 
+        # Editor de código
         self.code_editor = QTextEdit()
         self.code_editor.setPlaceholderText(
             "// Escribe tu solución en C++ aquí.\n"
@@ -341,8 +556,13 @@ class ModernMainWindow(QMainWindow):
                 color: #e0e0e0;
             }
         """)
-        splitter.addWidget(self.code_editor)
+        main_splitter.addWidget(self.code_editor)
 
+        # Splitter horizontal para terminal y análisis de IA
+        bottom_splitter = QSplitter(Qt.Horizontal)
+        bottom_splitter.setStyleSheet("QSplitter::handle { background-color: #444; }")
+
+        # Terminal de salida
         terminal_container = QWidget()
         terminal_layout = QVBoxLayout(terminal_container)
         terminal_layout.setContentsMargins(0, 0, 0, 0)
@@ -372,12 +592,53 @@ class ModernMainWindow(QMainWindow):
                 color: #00ff00;
             }
         """)
-        self.terminal_output.setMaximumHeight(300)
         terminal_layout.addWidget(self.terminal_output)
+        bottom_splitter.addWidget(terminal_container)
 
-        splitter.addWidget(terminal_container)
-        splitter.setSizes([700, 200])
-        layout.addWidget(splitter)
+        # NUEVO: Panel de análisis de IA
+        ai_container = QWidget()
+        ai_layout = QVBoxLayout(ai_container)
+        ai_layout.setContentsMargins(0, 0, 0, 0)
+
+        ai_header = QLabel("🤖 Análisis de IA")
+        ai_header.setStyleSheet("""
+            QLabel {
+                background-color: #252530;
+                color: #ccc;
+                padding: 8px 15px;
+                font-weight: bold;
+                border-top: 1px solid #444;
+                border-left: 1px solid #444;
+            }
+        """)
+        ai_layout.addWidget(ai_header)
+
+        self.ai_feedback = QTextEdit()
+        self.ai_feedback.setReadOnly(True)
+        self.ai_feedback.setPlaceholderText("El análisis de IA aparecerá aquí después de ejecutar el código...")
+        self.ai_feedback.setStyleSheet("""
+            QTextEdit {
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
+                font-size: 12px;
+                background-color: #1a1a1f;
+                border: none;
+                border-left: 1px solid #444;
+                padding: 15px;
+                color: #ffa500;
+            }
+        """)
+        ai_layout.addWidget(self.ai_feedback)
+        bottom_splitter.addWidget(ai_container)
+
+        # Configurar tamaños del splitter horizontal
+        bottom_splitter.setSizes([400, 400])
+
+        # Agregar el splitter horizontal al vertical
+        main_splitter.addWidget(bottom_splitter)
+
+        # Configurar tamaños del splitter vertical
+        main_splitter.setSizes([500, 200])
+        layout.addWidget(main_splitter)
 
         return container
 
@@ -755,11 +1016,69 @@ class ModernMainWindow(QMainWindow):
         self.current_problem_data = problem_info
         self.update_problem_display(problem_info)
 
+        # ✅ NUEVO: Mostrar confirmación en terminal
+        self.terminal_output.append(f"\n✅ Problema seleccionado: {problem_info.get('title')}")
+        self.terminal_output.append(f"📊 Dificultad: {problem_info.get('difficulty')}")
+        self.terminal_output.append("🎯 ¡Ahora puedes escribir y enviar tu solución!\n")
+
     def get_current_code(self):
         """Obtiene el código actual del editor"""
         if hasattr(self, 'code_editor'):
             return self.code_editor.toPlainText().strip()
         return ""
+
+    def handle_ai_response(self, response):
+        """Maneja la respuesta de la IA con mejor manejo de errores"""
+        try:
+            status = response.get('status')
+            message = response.get('message', '')
+
+            if status == 'success':
+                feedback = response.get('feedback_completo', 'Sin feedback')
+                formatted_feedback = self._format_ai_feedback(feedback)
+                self.ai_feedback.setPlainText(formatted_feedback)
+
+            elif status == 'timeout_error':
+                self.ai_feedback.setPlainText(
+                    "⏰ El servidor de IA está tardando demasiado\n\n"
+                    "Esto puede pasar porque:\n"
+                    "• El modelo de IA está cargando\n"
+                    "• Tu código es muy largo\n"
+                    "• El servidor está ocupado\n\n"
+                    "Solución:\n"
+                    "• Espera 1-2 minutos e intenta nuevamente\n"
+                    "• Usa código más corto\n"
+                    "• Reinicia el servidor de IA"
+                )
+
+            elif status == 'connection_error':
+                self.ai_feedback.setPlainText(
+                    "🔌 No se puede conectar al servidor de IA\n\n"
+                    "Para solucionarlo:\n"
+                    "1. Abre una terminal\n"
+                    "2. Ejecuta: uvicorn analizador_api:app --reload --port 8000\n"
+                    "3. Espera a que aparezca 'Application startup complete'\n"
+                    "4. Vuelve a intentar\n\n"
+                    "Si el problema persiste, reinicia la aplicación."
+                )
+
+            else:
+                error_msg = response.get('message', 'Error desconocido')
+                self.ai_feedback.setPlainText(
+                    f"❌ Error en análisis de IA\n\n"
+                    f"Detalles: {error_msg}\n\n"
+                    f"Puedes intentar:\n"
+                    f"• Reiniciar el servidor de IA\n"
+                    f"• Verificar que analizador_api.py esté en la carpeta correcta\n"
+                    f"• Revisar la consola para más detalles"
+                )
+
+        except Exception as e:
+            self.ai_feedback.setPlainText(
+                f"💥 Error crítico\n\n"
+                f"No se pudo procesar la respuesta de IA:\n{str(e)}\n\n"
+                f"Reinicia la aplicación y el servidor de IA."
+            )
 
     def send_raw_cpp_code(self, codigo_cpp: str):
         """Envía el código C++ en bruto al servidor CON LOS DATOS REALES DE MONGODB"""
@@ -775,9 +1094,10 @@ class ModernMainWindow(QMainWindow):
 
             payload = self.create_payload_with_real_data(codigo_cpp, user_name)
 
+            # ✅ NUEVA VALIDACIÓN: Si no hay payload, retornar error
             if payload is None:
-                error_msg = "❌ No se pudo crear el payload con datos reales"
-                print(error_msg)
+                error_msg = "No se pudo crear el payload. Selecciona un problema de la lista."
+                print(f"❌ {error_msg}")
                 return {
                     "status": "error",
                     "message": error_msg
@@ -793,7 +1113,7 @@ class ModernMainWindow(QMainWindow):
                 return result
             else:
                 return {
-                    "status": "error", 
+                    "status": "error",
                     "message": "Cliente de compilación no disponible"
                 }
 
@@ -1048,16 +1368,22 @@ int main() {
             self.show_output({"status": "error", "message": "El editor está vacío"})
             return
 
+        # ✅ VALIDACIÓN MEJORADA: Verificar problema seleccionado
         if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
             self.show_output({
                 "status": "error",
-                "message": "Selecciona un problema de la lista antes de enviar"
+                "message": "❌ Selecciona un problema de la lista antes de enviar\n\n" +
+                           "📝 Pasos:\n" +
+                           "1. Ve a la barra lateral izquierda\n" +
+                           "2. Haz clic en un problema de la lista\n" +
+                           "3. Espera a que carguen los detalles\n" +
+                           "4. Vuelve a intentar enviar tu código"
             })
             return
 
         try:
             result = self.send_raw_cpp_code(codigo_cpp)
-            detailed_result = self.show_output(result)  # Ahora retorna la estructura completa
+            detailed_result = self.show_output(result)
 
             # Actualizar MongoDB si la solución es correcta
             if detailed_result.get('problem_solved'):
@@ -1065,7 +1391,6 @@ int main() {
                     success = self.update_user_progress_after_solution(self.current_problem_data)
                     if success:
                         print("🎉 ¡Progreso guardado en MongoDB!")
-                        # Aquí puedes usar detailed_result para estadísticas adicionales
                         score = detailed_result.get('score', 0)
                         print(f"📊 Puntaje obtenido: {score}")
                     else:
@@ -1077,32 +1402,215 @@ int main() {
         except Exception as e:
             print(f"Error en submit_code_for_evaluation: {e}")
 
-    def seto_ai_feedbacknd_(self, detailed_result, user_code):
-        """Envía resultados a API de IA para retroalimentación"""
-        try:
-            # Preparar datos para IA
-            ai_data = {
-                'user_code': user_code,
-                'test_results': detailed_result.get('tests', []),
-                'score': detailed_result.get('score', 0),
-                'passed_count': detailed_result.get('passed_count', 0),
-                'total_tests': detailed_result.get('total_tests', 0),
-                'execution_time': detailed_result.get('execution_time', 0),
-                'problem_solved': detailed_result.get('problem_solved', False)
-            }
+    # =============================================
+    # MÉTODOS NUEVOS PARA INTEGRACIÓN CON IA
+    # =============================================
 
-            # Aquí iría la llamada a tu API de IA
-            print("🤖 Enviando datos a API de IA para retroalimentación...")
-            # requests.post('https://tu-api-ia.com/feedback', json=ai_data)
+    def closeEvent(self, event):
+        """Maneja el cierre de la aplicación - detiene el servidor de IA"""
+        print("🔴 Cerrando aplicación...")
+        self.stop_ai_server()
+        super().closeEvent(event)
+
+    def send_to_ai_feedback(self, detailed_result, user_code):
+        """Envía código a IA con validación de longitud"""
+        try:
+            # Verificar longitud del código
+            current_code = self.get_current_code()
+            if len(current_code) > 2000:
+                self.ai_feedback.setPlainText(
+                    "📝 Código demasiado largo\n\n"
+                    "Tu código excede el límite recomendado para análisis.\n\n"
+                    "Sugerencias:\n"
+                    "• Divide el código en funciones más pequeñas\n"
+                    "• Envía solo la parte problemática\n"
+                    "• El análisis funciona mejor con código conciso\n\n"
+                    "Longitud actual: " + str(len(current_code)) + " caracteres\n"
+                                                                   "Límite recomendado: 2000 caracteres"
+                )
+                return
+
+            # Verificar si el servidor de IA está disponible
+            if not self.ai_server_started:
+                self.ai_feedback.setPlainText("🔧 Iniciando servidor de IA...")
+                if not self.start_ai_server():
+                    self.ai_feedback.setPlainText("❌ No se pudo iniciar el servidor de IA")
+                    return
+
+            # Mensaje de carga con información de tiempo
+            self.ai_feedback.setPlainText(
+                "🔄 Analizando código...\n\n"
+                "Esto puede tomar hasta 45 segundos si es la primera vez.\n"
+                "Los modelos de IA necesitan tiempo para cargar.\n\n"
+                "⏳ Por favor espera..."
+            )
+
+            # Obtener datos
+            problem_statement = ""
+            if hasattr(self, 'current_problem_data') and self.current_problem_data:
+                problem_statement = self.current_problem_data.get('statement', '')
+
+            # Formatear resultados
+            eval_results = self._format_eval_results_for_ai(detailed_result)
+
+            # Preparar datos para IA
+            ai_data = self._create_enhanced_ai_prompt(current_code, problem_statement, eval_results)
+
+            print(f"🤖 Solicitando análisis de IA (código: {len(current_code)} caracteres)...")
+
+            # Verificar servidor
+            if not self.check_ai_server_running():
+                self.ai_feedback.setPlainText("❌ Servidor de IA no disponible")
+                return
+
+            # Enviar a IA
+            self.ai_thread = AIAnalysisThread(self.ai_api_url, ai_data)
+            self.ai_thread.analysis_complete.connect(self.handle_ai_response)
+            self.ai_thread.start()
 
         except Exception as e:
-            print(f"Error enviando a IA: {e}")
+            self.ai_feedback.setPlainText(f"❌ Error: {str(e)}")
+
+    def _format_eval_results_for_ai(self, detailed_result):
+        """Formatea los resultados de evaluación para la API de IA, enfocado en análisis de código"""
+        status = detailed_result.get('status', 'unknown')
+        summary = detailed_result.get('summary', 'No summary')
+        passed_count = detailed_result.get('passed_count', 0)
+        total_tests = detailed_result.get('total_tests', 0)
+        score = detailed_result.get('score', 0)
+        execution_time = detailed_result.get('execution_time', 0)
+        problem_solved = detailed_result.get('problem_solved', False)
+
+        formatted_results = f"""
+    INFORMACIÓN DE EJECUCIÓN:
+    - Estado: {status.upper()}
+    - Problema resuelto: {'SÍ' if problem_solved else 'NO'}
+    - Pruebas pasadas: {passed_count}/{total_tests}
+    - Tiempo de ejecución: {execution_time}ms
+    """
+
+        # Solo agregar detalles de pruebas si hay errores
+        if status != "success" and status != "compile_error":
+            tests = detailed_result.get('tests', [])
+            if tests:
+                formatted_results += "\nDETALLES DE PRUEBAS FALLIDAS:\n"
+                failed_tests = [test for test in tests if not test.get('passed', False)]
+                for i, test in enumerate(failed_tests[:3], 1):  # Máximo 3 tests fallidos
+                    test_id = test.get('test_id', f'Test_{i}')
+                    input_val = test.get('input', 'N/A')
+                    obtained = test.get('obtained', 'N/A')
+                    expected = test.get('expected', 'N/A')
+                    formatted_results += f"  ❌ {test_id}:\n"
+                    formatted_results += f"     Input: {input_val}\n"
+                    formatted_results += f"     Obtenido: {obtained}\n"
+                    formatted_results += f"     Esperado: {expected}\n\n"
+
+        # Información de compilación si hay error
+        if status == "compile_error":
+            compilation_output = detailed_result.get('compilation_output', '')
+            # Limitar la salida de compilación a las primeras líneas
+            compilation_lines = compilation_output.split('\n')[:10]
+            short_compilation = '\n'.join(compilation_lines)
+            formatted_results += f"\nERRORES DE COMPILACIÓN (primeras 10 líneas):\n{short_compilation}"
+
+            if len(compilation_output.split('\n')) > 10:
+                # ✅ Corregido para Python 3.11
+                num_lines = len(compilation_output.split('\n'))
+                remaining_lines = num_lines - 10
+                formatted_results += f"\n... y {remaining_lines} líneas más"
+
+        return formatted_results
+
+    def handle_ai_response(self, response):
+        """Maneja la respuesta de la IA de manera simple"""
+        try:
+            if response.get('status') == 'success':
+                feedback = response.get('feedback_completo', 'Sin feedback')
+                formatted_feedback = self._format_ai_feedback(feedback)
+                self.ai_feedback.setPlainText(formatted_feedback)
+            else:
+                error_msg = response.get('message', 'Error desconocido')
+                self.ai_feedback.setPlainText(f"❌ Error de IA: {error_msg}")
+
+        except Exception as e:
+            self.ai_feedback.setPlainText(f"❌ Error procesando respuesta: {str(e)}")
+
+    def _format_general_feedback(self, feedback):
+        """Formatea feedback general cuando no se detecta análisis de complejidad"""
+        return f"""🤖 ANÁLISIS GENERAL DEL CÓDIGO
+    ==================================================
+    {feedback}
+
+    ⚠️  Nota: No se detectó análisis específico de complejidad algorítmica.
+    El análisis se centra en la funcionalidad general del código."""
+
+    def _format_ai_feedback(self, feedback):
+        """Formatea el feedback de IA en mensajes simples y directos"""
+        if not feedback:
+            return "No se recibió feedback de la IA."
+
+        # Convertir a minúsculas para búsqueda más fácil
+        feedback_lower = feedback.lower()
+
+        # Buscar indicadores de código correcto
+        correct_indicators = [
+            'correcto', 'correcta', 'bien', 'éxito', 'success',
+            'funciona', 'adecuado', 'apropiado', 'cumple'
+        ]
+
+        # Buscar complejidad algorítmica
+        complexity_found = False
+        complexity_lines = []
+
+        lines = feedback.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Detectar líneas de complejidad
+            if any(keyword in line.lower() for keyword in ['o(', 'complejidad', 'big o', 'o(n)', 'o(1)', 'o(log']):
+                complexity_found = True
+                complexity_lines.append(line)
+
+        # Determinar si el código es correcto
+        is_correct = any(indicator in feedback_lower for indicator in correct_indicators) or complexity_found
+
+        if is_correct and complexity_found:
+            # Código correcto - mostrar complejidad
+            complexity_display = "\n".join(complexity_lines[:3])  # Mostrar máximo 3 líneas de complejidad
+            return f"🎉 ¡Muy bien! Tu algoritmo es de complejidad:\n\n{complexity_display}"
+
+        elif is_correct:
+            # Código correcto pero no se encontró complejidad específica
+            return "✅ ¡Buen trabajo! Tu código parece correcto.\n\n🤖 La IA no detectó problemas mayores, pero revisa la complejidad manualmente."
+
+        else:
+            # Código con errores - buscar pistas
+            hint_lines = []
+            for line in lines:
+                line_lower = line.lower()
+                if any(keyword in line_lower for keyword in
+                       ['error', 'problema', 'pista', 'sugerencia', 'recomendación', 'debería', 'podría']):
+                    if len(line.strip()) > 10:  # Solo líneas con contenido sustancial
+                        hint_lines.append(line.strip())
+
+            if hint_lines:
+                # Tomar las 2-3 pistas más relevantes
+                relevant_hints = hint_lines[:3]
+                hints_text = "\n• ".join(relevant_hints)
+                return f"🔧 Hay algunos errores. Te recomiendo pensar en:\n\n• {hints_text}"
+            else:
+                # Si no se encuentran pistas específicas, mostrar feedback general
+                short_feedback = feedback[:300] + "..." if len(feedback) > 300 else feedback
+                return f"📝 El código necesita ajustes:\n\n{short_feedback}"
 
     def create_payload_with_real_data(self, codigo_cpp: str, user_name: str):
         """Crea el payload usando los datos REALES del problema actual desde MongoDB"""
         if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
-            print("⚠️  No hay problema seleccionado, usando datos de prueba")
-            return self.create_dummy_payload(codigo_cpp, user_name)
+            error_msg = "❌ No hay problema seleccionado para crear el payload"
+            print(error_msg)
+            return None  # ✅ Retornar None en lugar de datos dummy
 
         problem_data = self.current_problem_data
         examples = problem_data.get('examples', [])
@@ -1173,6 +1681,135 @@ int main() {
 
         self.problem_section_title.setText(title)
         self.problem_section_desc.setText(description_html)
+
+
+    def _create_enhanced_ai_prompt(self, current_code, problem_statement, eval_results):
+        """Crea el payload CORRECTO para la API de DialoGPT"""
+
+        ai_data = {
+            "codigo_usuario": current_code,
+            "resultados_evaluacion": eval_results,
+            "problema_enunciado": problem_statement,
+            "lenguaje": "C++",
+            "instrucciones_especificas": """
+            Analiza este código C++ y proporciona:
+            1. COMPLEJIDAD: Si el código es correcto, da la complejidad algorítmica en notación Big O
+            2. PISTAS: Si hay errores, da 1-2 pistas específicas para corregirlos
+            3. SÉ BREVE: Máximo 3-4 líneas de respuesta
+            """
+        }
+
+        return ai_data
+
+
+# AuxCreator.py - AGREGAR estos métodos a la clase ModernMainWindow:
+
+def check_ai_server_quick(self):
+    """Verificación rápida del servidor IA"""
+    try:
+        response = requests.get("http://localhost:8000/health", timeout=2)
+        return response.status_code == 200
+    except:
+        return False
+
+
+def send_to_ai_feedback_fast(self, detailed_result, user_code):
+    """Versión rápida para análisis de IA"""
+    try:
+        # Verificar servidor primero
+        if not self.check_ai_server_quick():
+            self.ai_feedback.setPlainText(
+                "🤖 Servidor de IA no disponible\n\n"
+                "Usando análisis rápido local...\n\n"
+                "💡 Para análisis avanzado:\n"
+                "1. Espera 1 minuto tras iniciar la app\n"
+                "2. O reinicia la aplicación\n"
+                "3. El servidor carga automáticamente"
+            )
+            return
+
+        # Análisis rápido si el servidor está disponible
+        current_code = self.get_current_code()
+
+        if len(current_code) > 2000:
+            self.ai_feedback.setPlainText("📝 Código muy largo para análisis rápido")
+            return
+
+        # Mostrar mensaje de carga
+        self.ai_feedback.setPlainText("🔄 Analizando código (modo rápido)...")
+
+        # Preparar datos
+        problem_statement = ""
+        if hasattr(self, 'current_problem_data') and self.current_problem_data:
+            problem_statement = self.current_problem_data.get('statement', '')
+
+        eval_results = self._format_eval_results_for_ai(detailed_result)
+
+        ai_data = {
+            "codigo_usuario": current_code,
+            "resultados_evaluacion": eval_results,
+            "problema_enunciado": problem_statement,
+            "lenguaje": "C++"
+        }
+
+        # Enviar con timeout corto
+        try:
+            response = requests.post(
+                "http://localhost:8000/analyze_solution",
+                json=ai_data,
+                timeout=10  # Timeout corto
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('status') == 'success':
+                    self.ai_feedback.setPlainText(result.get('feedback_completo', 'Análisis completado'))
+                else:
+                    self.ai_feedback.setPlainText("❌ Error en análisis de IA")
+            else:
+                self.ai_feedback.setPlainText("🔌 Error conectando con IA")
+
+        except requests.exceptions.Timeout:
+            self.ai_feedback.setPlainText("⏰ Timeout - Servidor ocupado\n\nIntenta en 30 segundos")
+        except Exception as e:
+            self.ai_feedback.setPlainText(f"🔌 Error de conexión: {str(e)}")
+
+    except Exception as e:
+        self.ai_feedback.setPlainText(f"💥 Error: {str(e)}")
+
+
+# Y MODIFICAR el método submit_code_for_evaluation:
+def submit_code_for_evaluation(self):
+    """Envía código para evaluación - CON IA RÁPIDA"""
+    codigo_cpp = self.get_current_code()
+    if not codigo_cpp:
+        self.show_output({"status": "error", "message": "El editor está vacío"})
+        return
+
+    # Validar problema seleccionado
+    if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
+        self.show_output({
+            "status": "error",
+            "message": "❌ Selecciona un problema de la lista antes de enviar"
+        })
+        return
+
+    try:
+        result = self.send_raw_cpp_code(codigo_cpp)
+        detailed_result = self.show_output(result)
+
+        # Actualizar MongoDB si la solución es correcta
+        if detailed_result.get('problem_solved'):
+            if hasattr(self, 'current_problem_data') and self.current_problem_data:
+                success = self.update_user_progress_after_solution(self.current_problem_data)
+                if success:
+                    print("🎉 ¡Progreso guardado en MongoDB!")
+
+        # ✅ USAR LA VERSIÓN RÁPIDA DE IA
+        self.send_to_ai_feedback_fast(detailed_result, codigo_cpp)
+
+    except Exception as e:
+        print(f"Error en submit_code_for_evaluation: {e}")
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = ModernMainWindow()
