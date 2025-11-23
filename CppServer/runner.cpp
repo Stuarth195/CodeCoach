@@ -17,7 +17,6 @@ using json = nlohmann::json;
 namespace fs = std::filesystem;
 using namespace std::chrono;
 using namespace runner;
-// runner.cpp - REEMPLAZAR la función generate_full_source:
 
 namespace runner
 {
@@ -64,7 +63,7 @@ namespace runner
         src << "    return result;\n";
         src << "}\n\n";
 
-        // 4. MAIN INTELIGENTE CON TIPOS CORRECTOS
+        // 4. MAIN INTELIGENTE - DETECCIÓN AUTOMÁTICA DE TIPOS
         src << "int main() {\n";
 
         for (size_t i = 0; i < req.tests.size(); i++)
@@ -76,8 +75,33 @@ namespace runner
             src << "    // Test " << (i + 1) << ": " << input_val << "\n";
             src << "    try {\n";
 
-            // ✅ GENERACIÓN DE CÓDIGO ESPECÍFICA POR TIPO
-            if (req.function_type == "int")
+            // ✅ CORRECCIÓN CRÍTICA: DETECTAR EL TIPO REAL DE PARÁMETRO
+            // Analizar el código del usuario para determinar el tipo de parámetro
+            bool param_is_int = req.user_code.find("(int") != std::string::npos ||
+                                req.user_code.find("( int") != std::string::npos;
+            bool param_is_bool = req.user_code.find("(bool") != std::string::npos ||
+                                 req.user_code.find("( bool") != std::string::npos;
+
+            // Si la función retorna bool pero el parámetro es int
+            if (req.function_type == "bool" && param_is_int)
+            {
+                src << "        int input_val = " << input_val << ";\n";
+                src << "        bool result = " << req.function_name << "(input_val);\n";
+                src << "        cout << (result ? \"1\" : \"0\") << endl;\n";
+            }
+            // Si la función retorna bool y el parámetro es bool
+            else if (req.function_type == "bool" && param_is_bool)
+            {
+                std::string bool_value = "false";
+                if (input_val == "1" || input_val == "true" || input_val == "True")
+                {
+                    bool_value = "true";
+                }
+                src << "        bool input_val = " << bool_value << ";\n";
+                src << "        bool result = " << req.function_name << "(input_val);\n";
+                src << "        cout << (result ? \"1\" : \"0\") << endl;\n";
+            }
+            else if (req.function_type == "int")
             {
                 src << "        int input_val = " << input_val << ";\n";
                 src << "        int result = " << req.function_name << "(input_val);\n";
@@ -88,12 +112,6 @@ namespace runner
                 src << "        double input_val = " << input_val << ";\n";
                 src << "        double result = " << req.function_name << "(input_val);\n";
                 src << "        cout << result << endl;\n";
-            }
-            else if (req.function_type == "bool")
-            {
-                src << "        bool input_val = " << input_val << ";\n";
-                src << "        bool result = " << req.function_name << "(input_val);\n";
-                src << "        cout << (result ? \"1\" : \"0\") << endl;\n";
             }
             else if (req.function_type == "array")
             {
@@ -121,7 +139,7 @@ namespace runner
         return src.str();
     }
 
-} // namespace runner  // ✅ CERRAR EL NAMESPACE
+}
 
 static void writeFileAll(const std::string &path, const std::string &content)
 {
