@@ -25,11 +25,12 @@ namespace runner
     {
         std::ostringstream src;
 
-        // 1. Headers
+        // 1. Headers básicos
         src << "#include <iostream>\n";
         src << "#include <string>\n";
         src << "#include <sstream>\n";
         src << "#include <vector>\n";
+        src << "#include <list>\n";
         src << "#include <algorithm>\n";
         src << "using namespace std;\n\n";
 
@@ -38,7 +39,7 @@ namespace runner
         src << req.user_code << "\n";
         src << "// -----------------\n\n";
 
-        // 3. Helper para arrays
+        // 3. HELPERS PARA CONVERSIÓN DE TIPOS
         src << "// Helper para convertir string a vector<int>\n";
         src << "vector<int> stringToVector(const string& str) {\n";
         src << "    vector<int> result;\n";
@@ -63,8 +64,74 @@ namespace runner
         src << "    return result;\n";
         src << "}\n\n";
 
-        // 4. MAIN INTELIGENTE - DETECCIÓN AUTOMÁTICA DE TIPOS
+        src << "// Helper para convertir string a list<int>\n";
+        src << "list<int> stringToList(const string& str) {\n";
+        src << "    list<int> result;\n";
+        src << "    if (str.empty() || str == \"[]\") return result;\n";
+        src << "    string clean_str = str.substr(1, str.length() - 2);\n";
+        src << "    stringstream ss(clean_str);\n";
+        src << "    string token;\n";
+        src << "    while (getline(ss, token, ',')) {\n";
+        src << "        result.push_back(stoi(token));\n";
+        src << "    }\n";
+        src << "    return result;\n";
+        src << "}\n\n";
+
+        src << "// Helper para convertir list<int> a string\n";
+        src << "string listToString(const list<int>& lst) {\n";
+        src << "    string result = \"[\";\n";
+        src << "    bool first = true;\n";
+        src << "    for (int val : lst) {\n";
+        src << "        if (!first) result += \",\";\n";
+        src << "        result += to_string(val);\n";
+        src << "        first = false;\n";
+        src << "    }\n";
+        src << "    result += \"]\";\n";
+        src << "    return result;\n";
+        src << "}\n\n";
+
+        // 4. MAIN INTELIGENTE CON DETECCIÓN AUTOMÁTICA DE TIPOS
         src << "int main() {\n";
+
+        // ANÁLISIS DE LA FIRMA DE LA FUNCIÓN
+        std::string user_code = req.user_code;
+
+        // Detectar tipo de parámetro
+        bool receives_int = user_code.find("(int ") != std::string::npos ||
+                            user_code.find("(int)") != std::string::npos ||
+                            user_code.find("(int&") != std::string::npos ||
+                            user_code.find("(int x") != std::string::npos ||
+                            user_code.find("(int n") != std::string::npos;
+
+        bool receives_string = user_code.find("(string ") != std::string::npos ||
+                               user_code.find("(string)") != std::string::npos ||
+                               user_code.find("(string&") != std::string::npos ||
+                               user_code.find("(std::string") != std::string::npos ||
+                               user_code.find("(string s") != std::string::npos;
+
+        bool receives_bool = user_code.find("(bool ") != std::string::npos ||
+                             user_code.find("(bool)") != std::string::npos;
+
+        bool receives_double = user_code.find("(double ") != std::string::npos ||
+                               user_code.find("(double)") != std::string::npos;
+
+        bool receives_char = user_code.find("(char ") != std::string::npos ||
+                             user_code.find("(char)") != std::string::npos;
+
+        bool receives_vector = user_code.find("(vector<int>") != std::string::npos ||
+                               user_code.find("(vector<int>&") != std::string::npos ||
+                               user_code.find("(vector<int> ") != std::string::npos;
+
+        bool receives_list = user_code.find("(list<int>") != std::string::npos ||
+                             user_code.find("(list<int>&") != std::string::npos ||
+                             user_code.find("(list<int> ") != std::string::npos;
+
+        // Si no se detecta ningún tipo específico, asumir string por defecto
+        if (!receives_int && !receives_string && !receives_bool &&
+            !receives_double && !receives_char && !receives_vector && !receives_list)
+        {
+            receives_string = true;
+        }
 
         for (size_t i = 0; i < req.tests.size(); i++)
         {
@@ -75,22 +142,20 @@ namespace runner
             src << "    // Test " << (i + 1) << ": " << input_val << "\n";
             src << "    try {\n";
 
-            // ✅ CORRECCIÓN CRÍTICA: DETECTAR EL TIPO REAL DE PARÁMETRO
-            // Analizar el código del usuario para determinar el tipo de parámetro
-            bool param_is_int = req.user_code.find("(int") != std::string::npos ||
-                                req.user_code.find("( int") != std::string::npos;
-            bool param_is_bool = req.user_code.find("(bool") != std::string::npos ||
-                                 req.user_code.find("( bool") != std::string::npos;
-
-            // Si la función retorna bool pero el parámetro es int
-            if (req.function_type == "bool" && param_is_int)
+            // ✅ GENERACIÓN DE CÓDIGO SEGÚN TIPO DE PARÁMETRO
+            if (receives_string)
+            {
+                src << "        string input_val = \"" << input_val << "\";\n";
+            }
+            else if (receives_int)
             {
                 src << "        int input_val = " << input_val << ";\n";
-                src << "        bool result = " << req.function_name << "(input_val);\n";
-                src << "        cout << (result ? \"1\" : \"0\") << endl;\n";
             }
-            // Si la función retorna bool y el parámetro es bool
-            else if (req.function_type == "bool" && param_is_bool)
+            else if (receives_double)
+            {
+                src << "        double input_val = " << input_val << ";\n";
+            }
+            else if (receives_bool)
             {
                 std::string bool_value = "false";
                 if (input_val == "1" || input_val == "true" || input_val == "True")
@@ -98,31 +163,68 @@ namespace runner
                     bool_value = "true";
                 }
                 src << "        bool input_val = " << bool_value << ";\n";
+            }
+            else if (receives_char)
+            {
+                // Para char, tomar el primer carácter si es string largo
+                if (input_val.length() > 1 && input_val[0] == '\"' && input_val[input_val.length() - 1] == '\"')
+                {
+                    src << "        char input_val = '" << input_val.substr(1, input_val.length() - 2) << "';\n";
+                }
+                else
+                {
+                    src << "        char input_val = '" << input_val << "';\n";
+                }
+            }
+            else if (receives_vector)
+            {
+                src << "        vector<int> input_val = stringToVector(\"" << input_val << "\");\n";
+            }
+            else if (receives_list)
+            {
+                src << "        list<int> input_val = stringToList(\"" << input_val << "\");\n";
+            }
+
+            // ✅ GENERACIÓN DE LLAMADA Y OUTPUT SEGÚN TIPO DE RETORNO
+            if (req.function_type == "bool")
+            {
                 src << "        bool result = " << req.function_name << "(input_val);\n";
                 src << "        cout << (result ? \"1\" : \"0\") << endl;\n";
             }
             else if (req.function_type == "int")
             {
-                src << "        int input_val = " << input_val << ";\n";
                 src << "        int result = " << req.function_name << "(input_val);\n";
                 src << "        cout << result << endl;\n";
             }
             else if (req.function_type == "double")
             {
-                src << "        double input_val = " << input_val << ";\n";
                 src << "        double result = " << req.function_name << "(input_val);\n";
                 src << "        cout << result << endl;\n";
             }
-            else if (req.function_type == "array")
+            else if (req.function_type == "string")
             {
-                src << "        vector<int> input_val = stringToVector(\"" << input_val << "\");\n";
+                src << "        string result = " << req.function_name << "(input_val);\n";
+                src << "        cout << result << endl;\n";
+            }
+            else if (req.function_type == "char")
+            {
+                src << "        char result = " << req.function_name << "(input_val);\n";
+                src << "        cout << result << endl;\n";
+            }
+            else if (req.function_type == "array" || req.function_type == "vector")
+            {
                 src << "        vector<int> result = " << req.function_name << "(input_val);\n";
                 src << "        cout << vectorToString(result) << endl;\n";
             }
-            else // string por defecto
+            else if (req.function_type == "list")
             {
-                src << "        string input_val = \"" << input_val << "\";\n";
-                src << "        string result = " << req.function_name << "(input_val);\n";
+                src << "        list<int> result = " << req.function_name << "(input_val);\n";
+                src << "        cout << listToString(result) << endl;\n";
+            }
+            else
+            {
+                // Tipo por defecto: asumir que retorna string
+                src << "        auto result = " << req.function_name << "(input_val);\n";
                 src << "        cout << result << endl;\n";
             }
 
@@ -138,7 +240,6 @@ namespace runner
 
         return src.str();
     }
-
 }
 
 static void writeFileAll(const std::string &path, const std::string &content)
