@@ -276,7 +276,7 @@ class DatabaseHandler:
 
                 if difficulty == "Fácil":
                     icon = "🟢"
-                elif difficulty == "Media":
+                elif difficulty == "Medio":
                     icon = "🟡"
                 elif difficulty == "Difícil":
                     icon = "🔴"
