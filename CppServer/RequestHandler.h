@@ -38,6 +38,23 @@ private:
     std::string parseJsonFromRequest(const std::string &httpRequest);
 
 public:
+    struct EvalRequest
+    {
+        std::string submission_id;
+        std::string user_code;     // Codigo del usuario (solo la funcion)
+        std::string function_name; // Nombre de la funcion a llamar (ej: "esPalindromo")
+        std::string function_type; // ✅ NUEVO: Tipo de la función
+        std::string filename;      // Por defecto main.cpp
+
+        int compile_timeout_s = 10;
+        int run_timeout_s = 2;
+
+        // Vector de pares (input_arg_code, expected_stdout)
+        // Nota: input_arg_code se inyectará tal cual en el código C++.
+        // Si es string debe venir con comillas desde el JSON o manejarse aqui.
+        std::vector<std::pair<std::string, std::string>> tests;
+    };
+
     RequestHandler();
     ~RequestHandler();
 

@@ -52,9 +52,10 @@ namespace runner
     struct EvalRequest
     {
         std::string submission_id;
-        std::string user_code;     // Codigo del usuario (solo la funcion)
-        std::string function_name; // Nombre de la funcion a llamar (ej: "esPalindromo")
-        std::string filename;      // Por defecto main.cpp
+        std::string user_code;                // Codigo del usuario (solo la funcion)
+        std::string function_name;            // Nombre de la funcion a llamar (ej: "esPalindromo")
+        std::string function_type = "string"; // ✅ NUEVO: Tipo de la función (valor por defecto: string)
+        std::string filename;                 // Por defecto main.cpp
 
         int compile_timeout_s = 10;
         int run_timeout_s = 2;
@@ -64,7 +65,6 @@ namespace runner
         // Si es string debe venir con comillas desde el JSON o manejarse aqui.
         std::vector<std::pair<std::string, std::string>> tests;
     };
-
     // Función principal integrada:
     // Recibe el contenido JSON raw (requestBody), compila, ejecuta y retorna JSON string con resultados.
     std::string evaluate_submission(const std::string &jsonContent, const std::string &gpp_exe = "g++");

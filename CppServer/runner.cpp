@@ -36,18 +36,18 @@ static std::string cleanString(const std::string &s)
     return s.substr(first, (last - first + 1));
 }
 
-// Genera el archivo completo inyectando el código del usuario
+// runner.cpp - REEMPLAZAR la función generate_full_source completa:
+
 static std::string generate_full_source(const EvalRequest &req)
 {
     std::ostringstream src;
 
-    // 1. Headers comunes
+    // 1. Headers
     src << "#include <iostream>\n";
     src << "#include <string>\n";
+    src << "#include <sstream>\n";
     src << "#include <vector>\n";
     src << "#include <algorithm>\n";
-    src << "#include <cmath>\n";
-    src << "#include <map>\n";
     src << "using namespace std;\n\n";
 
     // 2. Código del usuario (Función)
@@ -55,23 +55,84 @@ static std::string generate_full_source(const EvalRequest &req)
     src << req.user_code << "\n";
     src << "// -----------------\n\n";
 
-    // 3. Main generado: Ejecuta cada input e imprime el resultado en una línea nueva
+    // 3. Helper para arrays
+    src << "// Helper para convertir string a vector<int>\n";
+    src << "vector<int> stringToVector(const string& str) {\n";
+    src << "    vector<int> result;\n";
+    src << "    if (str.empty() || str == \"[]\") return result;\n";
+    src << "    string clean_str = str.substr(1, str.length() - 2);\n";
+    src << "    stringstream ss(clean_str);\n";
+    src << "    string token;\n";
+    src << "    while (getline(ss, token, ',')) {\n";
+    src << "        result.push_back(stoi(token));\n";
+    src << "    }\n";
+    src << "    return result;\n";
+    src << "}\n\n";
+
+    src << "// Helper para convertir vector<int> a string\n";
+    src << "string vectorToString(const vector<int>& vec) {\n";
+    src << "    string result = \"[\";\n";
+    src << "    for (size_t i = 0; i < vec.size(); i++) {\n";
+    src << "        result += to_string(vec[i]);\n";
+    src << "        if (i < vec.size() - 1) result += \",\";\n";
+    src << "    }\n";
+    src << "    result += \"]\";\n";
+    src << "    return result;\n";
+    src << "}\n\n";
+
+    // 4. MAIN INTELIGENTE QUE USA function_type CORRECTAMENTE
     src << "int main() {\n";
-    for (const auto &test : req.tests)
+
+    for (size_t i = 0; i < req.tests.size(); i++)
     {
+        const auto &test = req.tests[i];
         std::string input_val = test.first;
+
+        src << "    \n";
+        src << "    // Test " << (i + 1) << ": " << input_val << "\n";
         src << "    try {\n";
-        // Imprime delimitador para asegurar que leemos lineas vacias si la respuesta es vacia
-        src << "        cout << " << req.function_name << "(" << input_val << ") << endl;\n";
-        src << "    } catch(...) { cout << \"ERROR_RUNTIME\" << endl; }\n";
+
+        // ✅ CORREGIDO: Usar function_type del request
+        if (req.function_type == "int")
+        {
+            src << "        int input_val = " << input_val << ";\n";
+            src << "        cout << " << req.function_name << "(input_val) << endl;\n";
+        }
+        else if (req.function_type == "double")
+        {
+            src << "        double input_val = " << input_val << ";\n";
+            src << "        cout << " << req.function_name << "(input_val) << endl;\n";
+        }
+        else if (req.function_type == "bool")
+        {
+            src << "        bool input_val = " << input_val << ";\n";
+            src << "        cout << boolalpha << " << req.function_name << "(input_val) << endl;\n";
+        }
+        else if (req.function_type == "array")
+        {
+            src << "        vector<int> input_val = stringToVector(\"" << input_val << "\");\n";
+            src << "        vector<int> result = " << req.function_name << "(input_val);\n";
+            src << "        cout << vectorToString(result) << endl;\n";
+        }
+        else // string por defecto
+        {
+            src << "        string input_val = \"" << input_val << "\";\n";
+            src << "        cout << " << req.function_name << "(input_val) << endl;\n";
+        }
+
+        src << "    } catch(const exception& e) { \n";
+        src << "        cout << \"ERROR: \" << e.what() << endl; \n";
+        src << "    } catch(...) { \n";
+        src << "        cout << \"ERROR_RUNTIME\" << endl; \n";
+        src << "    }\n";
     }
+
     src << "    return 0;\n";
     src << "}\n";
 
     return src.str();
 }
 
-// Ejecuta proceso y captura stdout
 static bool run_process_capture(const std::string &cmdline, const std::string &workdir,
                                 int timeout_s,
                                 std::string &out_stdout,
@@ -154,13 +215,39 @@ static CompileResult compile_source_windows(const std::string &gppExe, const std
     return cr;
 }
 
-// --- Función Principal de Evaluación ---
+std::string runner::evaluation_result_to_json(const EvaluationResult &result)
+{
+    json j;
+
+    j["status"] = result.status;
+    j["summary"] = result.summary;
+    j["passed_count"] = result.passed_count;
+    j["total_tests"] = result.total_tests;
+    j["score"] = result.score;
+    j["problem_solved"] = result.problem_solved;
+    j["compilation_output"] = result.compilation_output;
+    j["execution_output"] = result.execution_output;
+    j["execution_time_ms"] = result.execution_time.count();
+
+    json tests_array = json::array();
+    for (size_t i = 0; i < result.test_details.size(); ++i)
+    {
+        tests_array.push_back({{"test_id", i + 1},
+                               {"input", result.test_details[i].first},
+                               {"obtained", result.test_details[i].second},
+                               {"passed", result.test_passed[i]}});
+    }
+    j["tests"] = tests_array;
+
+    return j.dump();
+}
+
 EvaluationResult runner::evaluate_submission_detailed(const std::string &jsonContent, const std::string &gpp_exe)
 {
     EvaluationResult result;
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    // Parse JSON y preparar request (similar a evaluate_submission existente)
+    // Parse JSON y preparar request
     json req_json;
     try
     {
@@ -176,6 +263,14 @@ EvaluationResult runner::evaluate_submission_detailed(const std::string &jsonCon
     EvalRequest r;
     r.submission_id = req_json.value("nombre", "user");
     r.user_code = req_json.value("codigo", "");
+
+    // ✅ NUEVO: Extraer function_type del JSON
+    if (req_json.contains("function_type"))
+        r.function_type = req_json["function_type"].get<std::string>();
+    else
+        r.function_type = "string"; // Valor por defecto
+
+    std::cout << "🔧 Function Type: " << r.function_type << std::endl;
 
     // Obtener inputs y outputs
     for (int i = 1; i <= 3; ++i)
@@ -302,33 +397,6 @@ EvaluationResult runner::evaluate_submission_detailed(const std::string &jsonCon
     return result;
 }
 
-std::string runner::evaluation_result_to_json(const EvaluationResult &result)
-{
-    json j;
-
-    j["status"] = result.status;
-    j["summary"] = result.summary;
-    j["passed_count"] = result.passed_count;
-    j["total_tests"] = result.total_tests;
-    j["score"] = result.score;
-    j["problem_solved"] = result.problem_solved;
-    j["compilation_output"] = result.compilation_output;
-    j["execution_output"] = result.execution_output;
-    j["execution_time_ms"] = result.execution_time.count();
-
-    json tests_array = json::array();
-    for (size_t i = 0; i < result.test_details.size(); ++i)
-    {
-        tests_array.push_back({{"test_id", i + 1},
-                               {"input", result.test_details[i].first},
-                               {"obtained", result.test_details[i].second},
-                               {"passed", result.test_passed[i]}});
-    }
-    j["tests"] = tests_array;
-
-    return j.dump();
-}
-
 std::string runner::evaluate_submission(const std::string &jsonContent, const std::string &gpp_exe)
 {
     json req_json;
@@ -346,8 +414,13 @@ std::string runner::evaluate_submission(const std::string &jsonContent, const st
     r.submission_id = req_json.value("nombre", "user");
     r.user_code = req_json.value("codigo", "");
 
+    // ✅ NUEVO: Extraer function_type del JSON
+    if (req_json.contains("function_type"))
+        r.function_type = req_json["function_type"].get<std::string>();
+    else
+        r.function_type = "string"; // Valor por defecto
+
     // Obtener inputs y outputs esperados (Solo los 3 casos)
-    // Se asume que vienen como input1, input2, input3 y output_esperado1...
     for (int i = 1; i <= 3; ++i)
     {
         std::string kIn = "input" + std::to_string(i);

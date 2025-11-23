@@ -196,7 +196,6 @@ class ModernMainWindow(QMainWindow):
         if hasattr(self, 'problems_list'):
             self.problems_list.itemClicked.connect(self.display_problem_details)
 
-
     def initUI(self):
         """Inicializa la interfaz de usuario con diseño moderno"""
         self.setWindowTitle('leetAI - Code Coaching Platform')
@@ -1402,10 +1401,6 @@ int main() {
         except Exception as e:
             print(f"Error en submit_code_for_evaluation: {e}")
 
-    # =============================================
-    # MÉTODOS NUEVOS PARA INTEGRACIÓN CON IA
-    # =============================================
-
     def closeEvent(self, event):
         """Maneja el cierre de la aplicación - detiene el servidor de IA"""
         print("🔴 Cerrando aplicación...")
@@ -1605,45 +1600,6 @@ int main() {
                 short_feedback = feedback[:300] + "..." if len(feedback) > 300 else feedback
                 return f"📝 El código necesita ajustes:\n\n{short_feedback}"
 
-    def create_payload_with_real_data(self, codigo_cpp: str, user_name: str):
-        """Crea el payload usando los datos REALES del problema actual desde MongoDB"""
-        if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
-            error_msg = "❌ No hay problema seleccionado para crear el payload"
-            print(error_msg)
-            return None  # ✅ Retornar None en lugar de datos dummy
-
-        problem_data = self.current_problem_data
-        examples = problem_data.get('examples', [])
-
-        print(f"🔍 Extrayendo datos REALES del problema: {problem_data.get('title', 'N/A')}")
-        print(f"   - Número de ejemplos encontrados: {len(examples)}")
-
-        # Construir payload con TODOS los datos reales
-        payload = {
-            "nombre": user_name,
-            "codigo": codigo_cpp,
-            "problem_title": problem_data.get('title', 'Problema sin título'),
-            "difficulty": problem_data.get('difficulty', 'Desconocida'),
-            "category": problem_data.get('category', 'Sin categoría'),
-            "statement": problem_data.get('statement', 'Sin descripción'),
-            "big_o_expected": problem_data.get('big_o_expected', 'O(n)')
-        }
-
-        # Agregar todos los ejemplos disponibles (no limitar a 3)
-        for i, example in enumerate(examples, 1):
-            input_key = f"input{i}"
-            output_key = f"output_esperado{i}"
-
-            input_val = example.get('input_raw', '')
-            output_val = example.get('output_raw', '')
-
-            payload[input_key] = input_val
-            payload[output_key] = output_val
-
-            print(f"   - Ejemplo {i}: Input='{input_val}', Output='{output_val}'")
-
-        return payload
-
     def update_problem_display(self, problem_info):
         """Actualiza la visualización del problema en la GUI"""
         title = problem_info.get('title', 'Sin título')
@@ -1701,82 +1657,125 @@ int main() {
 
         return ai_data
 
+    def check_ai_server_quick(self):
+        """Verificación rápida del servidor IA"""
+        try:
+            response = requests.get("http://localhost:8000/health", timeout=2)
+            return response.status_code == 200
+        except:
+            return False
 
-# AuxCreator.py - AGREGAR estos métodos a la clase ModernMainWindow:
+    def send_to_ai_feedback_fast(self, detailed_result, user_code):
+        """Versión rápida para análisis de IA"""
+        try:
+            # Verificar servidor primero
+            if not self.check_ai_server_quick():
+                self.ai_feedback.setPlainText(
+                    "🤖 Servidor de IA no disponible\n\n"
+                    "Usando análisis rápido local...\n\n"
+                    "💡 Para análisis avanzado:\n"
+                    "1. Espera 1 minuto tras iniciar la app\n"
+                    "2. O reinicia la aplicación\n"
+                    "3. El servidor carga automáticamente"
+                )
+                return
 
-def check_ai_server_quick(self):
-    """Verificación rápida del servidor IA"""
-    try:
-        response = requests.get("http://localhost:8000/health", timeout=2)
-        return response.status_code == 200
-    except:
-        return False
+            # Análisis rápido si el servidor está disponible
+            current_code = self.get_current_code()
 
+            if len(current_code) > 2000:
+                self.ai_feedback.setPlainText("📝 Código muy largo para análisis rápido")
+                return
 
-def send_to_ai_feedback_fast(self, detailed_result, user_code):
-    """Versión rápida para análisis de IA"""
-    try:
-        # Verificar servidor primero
-        if not self.check_ai_server_quick():
-            self.ai_feedback.setPlainText(
-                "🤖 Servidor de IA no disponible\n\n"
-                "Usando análisis rápido local...\n\n"
-                "💡 Para análisis avanzado:\n"
-                "1. Espera 1 minuto tras iniciar la app\n"
-                "2. O reinicia la aplicación\n"
-                "3. El servidor carga automáticamente"
-            )
-            return
+            # Mostrar mensaje de carga
+            self.ai_feedback.setPlainText("🔄 Analizando código (modo rápido)...")
 
-        # Análisis rápido si el servidor está disponible
-        current_code = self.get_current_code()
+            # Preparar datos
+            problem_statement = ""
+            if hasattr(self, 'current_problem_data') and self.current_problem_data:
+                problem_statement = self.current_problem_data.get('statement', '')
 
-        if len(current_code) > 2000:
-            self.ai_feedback.setPlainText("📝 Código muy largo para análisis rápido")
-            return
+            eval_results = self._format_eval_results_for_ai(detailed_result)
 
-        # Mostrar mensaje de carga
-        self.ai_feedback.setPlainText("🔄 Analizando código (modo rápido)...")
+            ai_data = {
+                "codigo_usuario": current_code,
+                "resultados_evaluacion": eval_results,
+                "problema_enunciado": problem_statement,
+                "lenguaje": "C++"
+            }
 
-        # Preparar datos
-        problem_statement = ""
-        if hasattr(self, 'current_problem_data') and self.current_problem_data:
-            problem_statement = self.current_problem_data.get('statement', '')
+            # Enviar con timeout corto
+            try:
+                response = requests.post(
+                    "http://localhost:8000/analyze_solution",
+                    json=ai_data,
+                    timeout=10  # Timeout corto
+                )
 
-        eval_results = self._format_eval_results_for_ai(detailed_result)
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get('status') == 'success':
+                        self.ai_feedback.setPlainText(result.get('feedback_completo', 'Análisis completado'))
+                    else:
+                        self.ai_feedback.setPlainText("❌ Error en análisis de IA")
+                else:
+                    self.ai_feedback.setPlainText("🔌 Error conectando con IA")
 
-        ai_data = {
-            "codigo_usuario": current_code,
-            "resultados_evaluacion": eval_results,
-            "problema_enunciado": problem_statement,
-            "lenguaje": "C++"
+            except requests.exceptions.Timeout:
+                self.ai_feedback.setPlainText("⏰ Timeout - Servidor ocupado\n\nIntenta en 30 segundos")
+            except Exception as e:
+                self.ai_feedback.setPlainText(f"🔌 Error de conexión: {str(e)}")
+
+        except Exception as e:
+            self.ai_feedback.setPlainText(f"💥 Error: {str(e)}")
+
+    def create_payload_with_real_data(self, codigo_cpp: str, user_name: str):
+        """Crea el payload usando los datos REALES del problema actual desde MongoDB"""
+        if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
+            error_msg = "❌ No hay problema seleccionado para crear el payload"
+            print(error_msg)
+            return None
+
+        problem_data = self.current_problem_data
+        examples = problem_data.get('examples', [])
+
+        print(f"🔍 Extrayendo datos REALES del problema: {problem_data.get('title', 'N/A')}")
+        print(f"   - Número de ejemplos encontrados: {len(examples)}")
+
+        # ✅ CORREGIDO: Obtener function_type con valor por defecto
+        function_type = problem_data.get('function_type', 'string')
+        function_name = problem_data.get('function_name', problem_data.get('title', 'solution'))
+
+        print(f"   - Function Type: {function_type}")
+        print(f"   - Function Name: {function_name}")
+
+        # Construir payload con TODOS los datos reales
+        payload = {
+            "nombre": user_name,
+            "codigo": codigo_cpp,
+            "problem_title": problem_data.get('title', 'Problema sin título'),
+            "function_name": function_name,
+            "function_type": function_type,  # ✅ SIEMPRE INCLUIR
+            "difficulty": problem_data.get('difficulty', 'Desconocida'),
+            "category": problem_data.get('category', 'Sin categoría'),
+            "statement": problem_data.get('statement', 'Sin descripción'),
+            "big_o_expected": problem_data.get('big_o_expected', 'O(n)')
         }
 
-        # Enviar con timeout corto
-        try:
-            response = requests.post(
-                "http://localhost:8000/analyze_solution",
-                json=ai_data,
-                timeout=10  # Timeout corto
-            )
+        # Agregar todos los ejemplos disponibles
+        for i, example in enumerate(examples, 1):
+            input_key = f"input{i}"
+            output_key = f"output_esperado{i}"
 
-            if response.status_code == 200:
-                result = response.json()
-                if result.get('status') == 'success':
-                    self.ai_feedback.setPlainText(result.get('feedback_completo', 'Análisis completado'))
-                else:
-                    self.ai_feedback.setPlainText("❌ Error en análisis de IA")
-            else:
-                self.ai_feedback.setPlainText("🔌 Error conectando con IA")
+            input_val = example.get('input_raw', '')
+            output_val = example.get('output_raw', '')
 
-        except requests.exceptions.Timeout:
-            self.ai_feedback.setPlainText("⏰ Timeout - Servidor ocupado\n\nIntenta en 30 segundos")
-        except Exception as e:
-            self.ai_feedback.setPlainText(f"🔌 Error de conexión: {str(e)}")
+            payload[input_key] = input_val
+            payload[output_key] = output_val
 
-    except Exception as e:
-        self.ai_feedback.setPlainText(f"💥 Error: {str(e)}")
+            print(f"   - Ejemplo {i}: Input='{input_val}', Output='{output_val}'")
 
+        return payload
 
 # Y MODIFICAR el método submit_code_for_evaluation:
 def submit_code_for_evaluation(self):
