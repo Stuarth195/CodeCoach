@@ -624,7 +624,7 @@ bool es_palindromo(string s) {
 ### JSON
 
 ```json
-}
+{
   "title": "invertir_lista_enlazada",
   "category": "Listas Enlazadas",
   "difficulty": "Medio",
