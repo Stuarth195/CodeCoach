@@ -259,3 +259,402 @@ CodeCoach/
 ```
 
 ---
+
+
+Aquí tienes un **README completamente ordenado**, limpio y listo para **copiar y pegar** en tu proyecto **LeetAI**.
+Incluye **los JSON de los problemas** + **las soluciones en C++**, todo perfectamente organizado.
+No uso bloques especiales fuera del markdown normal (para que GitHub lo lea bien).
+
+---
+
+# 🚀 LeetAI — Banco de Problemas + Soluciones en C++
+
+Este repositorio contiene una colección de problemas estilo LeetCode diseñados para **LeetAI**, junto con su **estructura JSON lista para MongoDB** y su **implementación en C++**.
+
+Cada problema incluye:
+
+* Estructura JSON (para BD)
+* Descripción del enunciado
+* Ejemplos
+* Solución en C++
+
+---
+
+# 📘 **Índice de Problemas**
+
+| #  | Nombre             | Categoría           | Dificultad |
+| -- | ------------------ | ------------------- | ---------- |
+| 1  | es_numero_par      | Matemáticas Básicas | Fácil      |
+| 2  | suma_digitos       | Matemáticas         | Fácil      |
+| 3  | invertir_palabra   | Strings             | Fácil      |
+| 4  | calcular_promedio  | Matemáticas         | Fácil      |
+| 5  | es_vocal           | Caracteres          | Fácil      |
+| 6  | encontrar_maximo   | Arrays              | Fácil      |
+| 7  | fibonacci          | Matemáticas         | Medio      |
+| 8  | contar_palabras    | Strings             | Medio      |
+| 9  | es_palindromo      | Strings             | Medio      |
+| 10 | matriz_transpuesta | Matrices            | Difícil    |
+
+---
+
+# 📂 **Problemas + Soluciones**
+
+---
+
+## 1. **Es Número Par**
+
+### JSON
+
+```json
+{
+  "title": "es_numero_par",
+  "category": "Matemáticas Básicas",
+  "difficulty": "Fácil",
+  "statement": "Dado un número entero n, determina si es par. Retorna 1 si es par, 0 si es impar.",
+  "big_o_expected": "O(1)",
+  "function_type": "bool",
+  "function_name": "es_numero_par",
+  "examples": [
+    { "input_raw": "4", "input_pretty": "Input: n = 4", "output_raw": "1", "output_pretty": "Output: true" },
+    { "input_raw": "7", "input_pretty": "Input: n = 7", "output_raw": "0", "output_pretty": "Output: false" },
+    { "input_raw": "0", "input_pretty": "Input: n = 0", "output_raw": "1", "output_pretty": "Output: true" }
+  ]
+}
+```
+
+### Solución C++
+
+```cpp
+bool es_numero_par(int n) {
+    return n % 2 == 0;
+}
+```
+
+---
+
+## 2. **Suma Dígitos**
+
+### JSON
+
+```json
+{
+  "title": "suma_digitos",
+  "category": "Matemáticas",
+  "difficulty": "Fácil",
+  "statement": "Dado un número entero n, retorna la suma de sus dígitos.",
+  "big_o_expected": "O(d) donde d es el número de dígitos",
+  "function_type": "int",
+  "function_name": "suma_digitos",
+  "examples": [
+    { "input_raw": "123", "input_pretty": "Input: n = 123", "output_raw": "6", "output_pretty": "Output: 6" },
+    { "input_raw": "987", "input_pretty": "Input: n = 987", "output_raw": "24", "output_pretty": "Output: 24" },
+    { "input_raw": "0", "input_pretty": "Input: n = 0", "output_raw": "0", "output_pretty": "Output: 0" }
+  ]
+}
+```
+
+### Solución C++
+
+```cpp
+int suma_digitos(int n) {
+    int suma = 0;
+    n = abs(n);
+    while (n > 0) {
+        suma += n % 10;
+        n /= 10;
+    }
+    return suma;
+}
+```
+
+---
+
+## 3. **Invertir Palabra**
+
+### JSON
+
+```json
+{
+  "title": "invertir_palabra",
+  "category": "Strings",
+  "difficulty": "Fácil",
+  "statement": "Dada una cadena s, retorna la cadena invertida.",
+  "big_o_expected": "O(n)",
+  "function_type": "string",
+  "function_name": "invertir_palabra",
+  "examples": [
+    { "input_raw": "hola", "input_pretty": "Input: s = \"hola\"", "output_raw": "aloh", "output_pretty": "Output: \"aloh\"" },
+    { "input_raw": "mundo", "input_pretty": "Input: s = \"mundo\"", "output_raw": "odnum", "output_pretty": "Output: \"odnum\"" },
+    { "input_raw": "a", "input_pretty": "Input: s = \"a\"", "output_raw": "a", "output_pretty": "Output: \"a\"" }
+  ]
+}
+```
+
+### Solución C++
+
+```cpp
+string invertir_palabra(string s) {
+    reverse(s.begin(), s.end());
+    return s;
+}
+```
+
+---
+
+## 4. **Calcular Promedio**
+
+### JSON
+
+```json
+{
+  "title": "calcular_promedio",
+  "category": "Matemáticas",
+  "difficulty": "Fácil",
+  "statement": "Dado un arreglo de números, calcula el promedio.",
+  "big_o_expected": "O(n)",
+  "function_type": "double",
+  "function_name": "calcular_promedio",
+  "examples": [
+    { "input_raw": "[1,2,3,4,5]", "output_raw": "3.0" },
+    { "input_raw": "[10,20,30]", "output_raw": "20.0" },
+    { "input_raw": "[0]", "output_raw": "0.0" }
+  ]
+}
+```
+
+### Solución C++
+
+```cpp
+double calcular_promedio(vector<int> nums) {
+    if (nums.empty()) return 0.0;
+    double suma = 0;
+    for (int n : nums) suma += n;
+    return suma / nums.size();
+}
+```
+
+---
+
+## 5. **Es Vocal**
+
+### JSON
+
+```json
+{
+  "title": "es_vocal",
+  "category": "Caracteres",
+  "difficulty": "Fácil",
+  "statement": "Dado un carácter c, determina si es una vocal.",
+  "big_o_expected": "O(1)",
+  "function_type": "bool",
+  "function_name": "es_vocal",
+  "examples": [
+    { "input_raw": "a", "output_raw": "1" },
+    { "input_raw": "E", "output_raw": "1" },
+    { "input_raw": "z", "output_raw": "0" }
+  ]
+}
+```
+
+### Solución C++
+
+```cpp
+bool es_vocal(char c) {
+    c = tolower(c);
+    return c=='a' || c=='e' || c=='i' || c=='o' || c=='u';
+}
+```
+
+---
+
+## 6. **Encontrar Máximo**
+
+### JSON
+
+```json
+{
+  "title": "encontrar_maximo",
+  "category": "Arrays",
+  "difficulty": "Fácil",
+  "statement": "Dado un arreglo, retorna el valor máximo.",
+  "big_o_expected": "O(n)",
+  "function_type": "int",
+  "function_name": "encontrar_maximo",
+  "examples": [
+    { "input_raw": "[1,5,3,9,2]", "output_raw": "9" },
+    { "input_raw": "[-1,-5,-3]", "output_raw": "-1" },
+    { "input_raw": "[42]", "output_raw": "42" }
+  ]
+}
+```
+
+### Solución C++
+
+```cpp
+int encontrar_maximo(vector<int> nums) {
+    if (nums.empty()) return INT_MIN;
+    int maximo = nums[0];
+    for (int n : nums)
+        if (n > maximo) maximo = n;
+    return maximo;
+}
+```
+
+---
+
+## 7. **Fibonacci**
+
+### JSON
+
+```json
+{
+  "title": "fibonacci",
+  "category": "Matemáticas",
+  "difficulty": "Medio",
+  "statement": "Retorna el n-ésimo número Fibonacci.",
+  "big_o_expected": "O(n)",
+  "function_type": "int",
+  "function_name": "fibonacci",
+  "examples": [
+    { "input_raw": "0", "output_raw": "0" },
+    { "input_raw": "1", "output_raw": "1" },
+    { "input_raw": "6", "output_raw": "8" }
+  ]
+}
+```
+
+### Solución C++
+
+```cpp
+int fibonacci(int n) {
+    if (n <= 1) return n;
+    int a = 0, b = 1;
+    for (int i = 2; i <= n; i++) {
+        int t = a + b;
+        a = b;
+        b = t;
+    }
+    return b;
+}
+```
+
+---
+
+## 8. **Contar Palabras**
+
+### JSON
+
+```json
+{
+  "title": "contar_palabras",
+  "category": "Strings",
+  "difficulty": "Medio",
+  "statement": "Cuenta las palabras separadas por espacios.",
+  "big_o_expected": "O(n)",
+  "function_type": "int",
+  "function_name": "contar_palabras",
+  "examples": [
+    { "input_raw": "Hola mundo", "output_raw": "2" },
+    { "input_raw": "   espacios   multiples   ", "output_raw": "2" },
+    { "input_raw": "", "output_raw": "0" }
+  ]
+}
+```
+
+### Solución C++
+
+```cpp
+int contar_palabras(string s) {
+    int contador = 0;
+    bool en_palabra = false;
+    for (char c : s) {
+        if (c != ' ' && !en_palabra) {
+            contador++;
+            en_palabra = true;
+        } else if (c == ' ') {
+            en_palabra = false;
+        }
+    }
+    return contador;
+}
+```
+
+---
+
+## 9. **Es Palíndromo**
+
+### JSON
+
+```json
+{
+  "title": "es_palindromo",
+  "category": "Strings",
+  "difficulty": "Medio",
+  "statement": "Determina si una cadena es palíndromo ignorando símbolos y mayúsculas.",
+  "big_o_expected": "O(n)",
+  "function_type": "bool",
+  "function_name": "es_palindromo",
+  "examples": [
+    { "input_raw": "Anita lava la tina", "output_raw": "1" },
+    { "input_raw": "A man, a plan, a canal: Panama", "output_raw": "1" },
+    { "input_raw": "hello world", "output_raw": "0" }
+  ]
+}
+```
+
+### Solución C++
+
+```cpp
+bool es_palindromo(string s) {
+    int i = 0, j = s.length() - 1;
+    while (i < j) {
+        while (i < j && !isalnum(s[i])) i++;
+        while (i < j && !isalnum(s[j])) j--;
+        if (tolower(s[i]) != tolower(s[j])) return false;
+        i++; j--;
+    }
+    return true;
+}
+```
+
+---
+
+## 10. **Matriz Transpuesta**
+
+### JSON
+
+```json
+{
+  "title": "matriz_transpuesta",
+  "category": "Matrices",
+  "difficulty": "Difícil",
+  "statement": "Retorna la matriz transpuesta.",
+  "big_o_expected": "O(n*m)",
+  "function_type": "array",
+  "function_name": "matriz_transpuesta",
+  "examples": [
+    { "input_raw": "[[1,2,3],[4,5,6]]", "output_raw": "[[1,4],[2,5],[3,6]]" },
+    { "input_raw": "[[1,2],[3,4],[5,6]]", "output_raw": "[[1,3,5],[2,4,6]]" },
+    { "input_raw": "[[1]]", "output_raw": "[[1]]" }
+  ]
+}
+```
+
+### Solución C++
+
+```cpp
+vector<vector<int>> matriz_transpuesta(vector<vector<int>> matrix) {
+    if (matrix.empty()) return {};
+    int filas = matrix.size();
+    int col = matrix[0].size();
+    vector<vector<int>> t(col, vector<int>(filas));
+    for (int i = 0; i < filas; i++)
+        for (int j = 0; j < col; j++)
+            t[j][i] = matrix[i][j];
+    return t;
+}
+```
+
+---
+
+
