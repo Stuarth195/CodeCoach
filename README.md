@@ -619,23 +619,38 @@ bool es_palindromo(string s) {
 
 ---
 
-## 10. **Matriz Transpuesta**
+## 10. **invertir lista enlazada**
 
 ### JSON
 
 ```json
-{
-  "title": "matriz_transpuesta",
-  "category": "Matrices",
-  "difficulty": "Difícil",
-  "statement": "Retorna la matriz transpuesta.",
-  "big_o_expected": "O(n*m)",
+}
+  "title": "invertir_lista_enlazada",
+  "category": "Listas Enlazadas",
+  "difficulty": "Medio",
+  "statement": "Dada la cabeza 'head' de una lista enlazada simple, invierte la lista y devuelve la cabeza de la lista invertida.",
+  "big_o_expected": "O(n)",
   "function_type": "array",
-  "function_name": "matriz_transpuesta",
+  "function_name": "invertir_lista_enlazada",
   "examples": [
-    { "input_raw": "[[1,2,3],[4,5,6]]", "output_raw": "[[1,4],[2,5],[3,6]]" },
-    { "input_raw": "[[1,2],[3,4],[5,6]]", "output_raw": "[[1,3,5],[2,4,6]]" },
-    { "input_raw": "[[1]]", "output_raw": "[[1]]" }
+    {
+      "input_raw": "[1, 2, 3, 4, 5]",
+      "input_pretty": "Input: head = [1, 2, 3, 4, 5]",
+      "output_raw": "[5, 4, 3, 2, 1]",
+      "output_pretty": "Output: [5, 4, 3, 2, 1]"
+    },
+    {
+      "input_raw": "[1, 2]",
+      "input_pretty": "Input: head = [1, 2]",
+      "output_raw": "[2, 1]",
+      "output_pretty": "Output: [2, 1]"
+    },
+    {
+      "input_raw": "[]",
+      "input_pretty": "Input: head = []",
+      "output_raw": "[]",
+      "output_pretty": "Output: []"
+    }
   ]
 }
 ```
@@ -643,15 +658,21 @@ bool es_palindromo(string s) {
 ### Solución C++
 
 ```cpp
-vector<vector<int>> matriz_transpuesta(vector<vector<int>> matrix) {
-    if (matrix.empty()) return {};
-    int filas = matrix.size();
-    int col = matrix[0].size();
-    vector<vector<int>> t(col, vector<int>(filas));
-    for (int i = 0; i < filas; i++)
-        for (int j = 0; j < col; j++)
-            t[j][i] = matrix[i][j];
-    return t;
+#include <iostream>
+#include <vector>
+#include <algorithm>
+using namespace std;
+
+vector<int> invertir_lista_enlazada(vector<int> head) {
+    // Caso especial: lista vacía
+    if (head.empty()) {
+        return {};
+    }
+    
+    // Crear una copia y usar reverse de algorithm
+    vector<int> resultado = head;
+    reverse(resultado.begin(), resultado.end());
+    return resultado;
 }
 ```
 
