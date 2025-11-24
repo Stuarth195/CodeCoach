@@ -1,21 +1,31 @@
-# AuxCreator.py - VENTANA PRINCIPAL COMPLETA
 import sys
 import os
 import threading
-# Añadir después de las importaciones existentes
+import subprocess
+import time
 import requests
 import json
-from PyQt5.QtCore import QThread, pyqtSignal
+
+from PyQt5.QtCore import (
+    Qt, QSize, QPropertyAnimation, QEasingCurve,
+    pyqtProperty, pyqtSignal, QThread, QProcess
+)
+
+from PyQt5.QtGui import (
+    QFont, QPalette, QColor, QIcon, QFontDatabase
+)
+
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout,
+    QHBoxLayout, QGridLayout, QTabWidget, QTextEdit,
+    QListWidget, QLabel, QPushButton, QSplitter,
+    QFrame, QProgressBar, QStackedWidget, QMessageBox,
+    QFormLayout, QLineEdit, QComboBox, QFileDialog
+)
+
 # Configurar paths
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
-
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
-                             QHBoxLayout, QGridLayout, QTabWidget, QTextEdit,
-                             QListWidget, QLabel, QPushButton, QSplitter,
-                             QFrame, QProgressBar, QStackedWidget, QMessageBox)
-from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, pyqtProperty
-from PyQt5.QtGui import QFont, QPalette, QColor, QIcon, QFontDatabase
 
 # Importar desde módulos de lógica
 try:
@@ -30,8 +40,10 @@ except ImportError as e:
         def get_all_problem_titles(self): return ["Problema Dummy 1", "Problema Dummy 2"]
         def get_problem_details(self, title): return None
         def get_global_ranking(self, limit=10): return []
+
     class AuthManager:
         def update_user_progress(self, *args): print("Dummy: Actualizando progreso"); return True, None
+
     class User:
         def __init__(self, username=""):
             self.username = username
@@ -43,6 +55,7 @@ except ImportError as e:
             self.dificil_resueltos = 0
             self.racha_actual = 0
             self.mejor_racha = 0
+
         def refresh_stats(self): pass
         def get_stats_for_display(self):
             return {
@@ -66,6 +79,7 @@ except ImportError as e:
     class CodeCompilerWrapper:
         def send_evaluation_package(self, payload):
             return {"status": "dummy", "message": "Modo dummy"}
+
     class UIActions:
         def __init__(self, win): self.win = win
         def run_code(self): print("Dummy run_code")
@@ -73,10 +87,6 @@ except ImportError as e:
         def reset_editor(self): print("Dummy reset_editor")
         def save_code(self): print("Dummy save_code")
         def open_section(self, name): print(f"Dummy open_section: {name}")
-import subprocess
-import time
-import threading
-from PyQt5.QtCore import QProcess
 
 
 class AIAnalysisThread(QThread):
@@ -152,7 +162,6 @@ class AIAnalysisThread(QThread):
             "message": "Máximo número de reintentos alcanzado",
             "feedback_completo": "No se pudo obtener respuesta del servidor de IA después de múltiples intentos."
         })
-
 
 class ModernMainWindow(QMainWindow):
     # AuxCreator.py - EN LA CLASE ModernMainWindow, MODIFICAR __init__:
@@ -349,33 +358,33 @@ class ModernMainWindow(QMainWindow):
             self.ai_feedback.setPlainText(error_display)
 
     def create_central_stacked(self):
-        """Crea el QStackedWidget para manejar las diferentes secciones"""
+        """Crea el QStackedWidget para manejar las diferentes secciones - SIN AJUSTES"""
         self.stacked_widget = QStackedWidget()
 
-        # Crear todas las secciones
+        # Crear todas las secciones (SIN AJUSTES)
         self.editor_section = self.create_coding_environment()
         self.problems_section = self.create_problems_section()
         self.progress_section = self.create_progress_section()
         self.ranking_section = self.create_ranking_section()
-        self.settings_section = self.create_settings_section()
+        self.problem_management_section = self.create_problem_management_section()  # NUEVA SECCIÓN
 
-        # Agregar secciones al stacked widget
+        # Agregar secciones al stacked widget (SIN AJUSTES)
         self.stacked_widget.addWidget(self.editor_section)  # Índice 0
         self.stacked_widget.addWidget(self.problems_section)  # Índice 1
         self.stacked_widget.addWidget(self.progress_section)  # Índice 2
         self.stacked_widget.addWidget(self.ranking_section)  # Índice 3
-        self.stacked_widget.addWidget(self.settings_section)  # Índice 4
+        self.stacked_widget.addWidget(self.problem_management_section)  # Índice 4
 
         return self.stacked_widget
 
     def show_section(self, section_name):
-        """Muestra una sección específica con animación"""
+        """Muestra una sección específica con animación - MAPA ACTUALIZADO"""
         section_map = {
             "Editor": 0,
             "Problemas": 1,
             "Mi Progreso": 2,
             "Ranking": 3,
-            "Ajustes": 4
+            "Gestión Problemas": 4  # NUEVO ÍNDICE
         }
 
         if section_name in section_map:
@@ -444,7 +453,7 @@ class ModernMainWindow(QMainWindow):
             ("Problemas", "📋"),
             ("Mi Progreso", "📊"),
             ("Ranking", "🏆"),
-            ("Ajustes", "⚙️")
+            ("Gestión Problemas", "🛠️"),
         ]
 
         self.nav_buttons = {}
@@ -494,12 +503,12 @@ class ModernMainWindow(QMainWindow):
         return sidebar
 
     def create_coding_environment(self):
-        """Crea el entorno de programación con editor, terminal y análisis de IA"""
+        """Crea el entorno de programación - VERSIÓN CORREGIDA"""
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Barra de herramientas del editor
+        # Barra de herramientas del editor - SOLO EJECUTAR Y REINICIAR
         toolbar = QWidget()
         toolbar.setFixedHeight(50)
         toolbar.setStyleSheet("background-color: #252530; border-radius: 4px;")
@@ -511,20 +520,13 @@ class ModernMainWindow(QMainWindow):
         self.run_btn.setStyleSheet(self._button_style("#27ae60"))
         toolbar_layout.addWidget(self.run_btn)
 
-        self.send_btn = QPushButton("📤 Enviar")
-        self.send_btn.setFixedHeight(35)
-        self.send_btn.setStyleSheet(self._button_style("#2980b9"))
-        toolbar_layout.addWidget(self.send_btn)
+        # ELIMINADO: Botón Enviar
+        # ELIMINADO: Botón Guardar
 
         self.reset_btn = QPushButton("🔄 Reiniciar")
         self.reset_btn.setFixedHeight(35)
         self.reset_btn.setStyleSheet(self._button_style("#e74c3c"))
         toolbar_layout.addWidget(self.reset_btn)
-
-        self.save_btn = QPushButton("💾 Guardar")
-        self.save_btn.setFixedHeight(35)
-        self.save_btn.setStyleSheet(self._button_style("#f39c12"))
-        toolbar_layout.addWidget(self.save_btn)
 
         toolbar_layout.addStretch()
 
@@ -533,7 +535,6 @@ class ModernMainWindow(QMainWindow):
         toolbar_layout.addWidget(lang_label)
 
         layout.addWidget(toolbar)
-
         # Splitter principal vertical
         main_splitter = QSplitter(Qt.Vertical)
         main_splitter.setStyleSheet("QSplitter::handle { background-color: #444; }")
@@ -1299,14 +1300,15 @@ class ModernMainWindow(QMainWindow):
             print("✅ Código template cargado según tipo de problema")
 
     def setup_actions(self):
-        """CONECTA LOS BOTONES A SUS MÉTODOS CORRESPONDIENTES"""
+        """CONECTA LOS BOTONES A SUS MÉTODOS CORRESPONDIENTES - VERSIÓN CORREGIDA"""
         print("🔗 Conectando botones...")
 
-        # Conectar botones de ejecución
+        # Conectar botones de ejecución (SOLO EJECUTAR)
         if hasattr(self, 'run_btn'):
             self.run_btn.clicked.connect(self.submit_code_for_evaluation)
-        if hasattr(self, 'send_btn'):
-            self.send_btn.clicked.connect(self.submit_code_for_evaluation)
+
+        # ELIMINADO: Botón Enviar
+        # ELIMINADO: Botón Guardar
 
         # Conectar botones de navegación
         if hasattr(self, 'nav_buttons'):
@@ -1843,38 +1845,636 @@ class ModernMainWindow(QMainWindow):
 
         return payload
 
-# Y MODIFICAR el método submit_code_for_evaluation:
-def submit_code_for_evaluation(self):
-    """Envía código para evaluación - CON IA RÁPIDA"""
-    codigo_cpp = self.get_current_code()
-    if not codigo_cpp:
-        self.show_output({"status": "error", "message": "El editor está vacío"})
-        return
 
-    # Validar problema seleccionado
-    if not hasattr(self, 'current_problem_data') or not self.current_problem_data:
-        self.show_output({
-            "status": "error",
-            "message": "❌ Selecciona un problema de la lista antes de enviar"
-        })
-        return
+    # Añadir después de create_settings_section() en AuxCreator.py
 
-    try:
-        result = self.send_raw_cpp_code(codigo_cpp)
-        detailed_result = self.show_output(result)
 
-        # Actualizar MongoDB si la solución es correcta
-        if detailed_result.get('problem_solved'):
-            if hasattr(self, 'current_problem_data') and self.current_problem_data:
-                success = self.update_user_progress_after_solution(self.current_problem_data)
+    def create_problem_management_section(self):
+        """Crea la sección de gestión de problemas"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        title = QLabel("🛠️ Gestión de Problemas")
+        title.setStyleSheet("font-size: 28px; font-weight: bold; color: #fff; margin-bottom: 20px;")
+        layout.addWidget(title)
+
+        # Pestañas para diferentes modos
+        tab_widget = QTabWidget()
+        tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #444;
+                border-radius: 4px;
+                background-color: #252530;
+            }
+            QTabBar::tab {
+                background-color: #2a2a35;
+                color: #ccc;
+                padding: 8px 16px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background-color: #3498db;
+                color: #fff;
+            }
+        """)
+
+        # Pestaña de formulario
+        form_tab = self.create_problem_form_tab()
+        tab_widget.addTab(form_tab, "📝 Formulario")
+
+        # Pestaña de JSON
+        json_tab = self.create_json_upload_tab()
+        tab_widget.addTab(json_tab, "📁 Cargar JSON")
+
+        # Pestaña de documentación
+        docs_tab = self.create_documentation_tab()
+        tab_widget.addTab(docs_tab, "📚 Cómo Usar")
+
+        layout.addWidget(tab_widget)
+        return container
+
+
+
+
+    def create_json_upload_tab(self):
+        """Crea la pestaña para cargar JSON"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+
+        title = QLabel("📁 Cargar Problema desde JSON")
+        title.setStyleSheet("font-size: 18px; color: #fff; margin-bottom: 20px;")
+        layout.addWidget(title)
+
+        # Área para pegar JSON
+        self.json_editor = QTextEdit()
+        self.json_editor.setPlaceholderText("Pega aquí tu JSON o usa el botón para cargar archivo...")
+        self.json_editor.setStyleSheet("""
+            QTextEdit {
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
+                font-size: 12px;
+                background-color: #1a1a1f;
+                border: 1px solid #444;
+                border-radius: 4px;
+                padding: 10px;
+                color: #e0e0e0;
+            }
+        """)
+        layout.addWidget(self.json_editor)
+
+        # Botones
+        buttons_layout = QHBoxLayout()
+
+        load_file_btn = QPushButton("📂 Cargar Archivo JSON")
+        load_file_btn.setStyleSheet(self._button_style("#f39c12"))
+        load_file_btn.clicked.connect(self.load_json_file)
+
+        validate_btn = QPushButton("🔍 Validar JSON")
+        validate_btn.setStyleSheet(self._button_style("#3498db"))
+        validate_btn.clicked.connect(self.validate_json)
+
+        submit_json_btn = QPushButton("🚀 Subir JSON")
+        submit_json_btn.setStyleSheet(self._button_style("#27ae60"))
+        submit_json_btn.clicked.connect(self.submit_json_problem)
+
+        buttons_layout.addWidget(load_file_btn)
+        buttons_layout.addWidget(validate_btn)
+        buttons_layout.addWidget(submit_json_btn)
+        layout.addLayout(buttons_layout)
+
+        # Estado
+        self.json_status = QLabel("")
+        self.json_status.setStyleSheet("color: #ccc; padding: 10px;")
+        layout.addWidget(self.json_status)
+
+        layout.addStretch()
+        return container
+
+
+    def create_documentation_tab(self):
+        """Crea la pestaña de documentación"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+
+        doc_text = QTextEdit()
+        doc_text.setReadOnly(True)
+        doc_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #1a1a1f;
+                color: #ddd;
+                border: none;
+                padding: 15px;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+        """)
+        doc_text.setHtml(self.get_documentation_html())
+        layout.addWidget(doc_text)
+
+        return container
+
+
+    def get_documentation_html(self):
+        """Retorna el HTML formateado para la documentación"""
+        return """
+        <h1 style="color: #3498db;">📚 Guía de Uso - leetAI</h1>
+    
+        <h2 style="color: #f39c12;">🚀 Cómo Subir Problemas</h2>
+    
+        <h3 style="color: #2ecc71;">📝 Usando el Formulario</h3>
+        <ul>
+            <li><b>Título:</b> Nombre único del problema (ej: "suma_dos_numeros")</li>
+            <li><b>Categoría:</b> Área del problema</li>
+            <li><b>Dificultad:</b> Fácil, Medio o Difícil</li>
+            <li><b>Tipos de Entrada/Salida:</b> Solo los tipos soportados (ver abajo)</li>
+            <li><b>Enunciado:</b> Descripción clara del problema</li>
+            <li><b>Ejemplos:</b> Mínimo 1 ejemplo de input/output</li>
+        </ul>
+    
+        <h3 style="color: #2ecc71;">📁 Usando JSON</h3>
+        <pre style="background: #252530; padding: 15px; border-radius: 5px; color: #e0e0e0;">
+    {
+      "title": "suma_basica",
+      "category": "Matemáticas",
+      "difficulty": "Fácil", 
+      "statement": "Dado un número entero n, retorna n+1.",
+      "input_type": "int",
+      "output_type": "int",
+      "examples": [
+        {
+          "input_raw": "5",
+          "output_raw": "6"
+        }
+      ],
+      "big_o_expected": "O(1)"
+    }</pre>
+    
+        <h2 style="color: #f39c12;">✅ Tipos de Datos Soportados</h2>
+        <ul>
+            <li><code>bool</code> - Valores true/false</li>
+            <li><code>int</code> - Números enteros</li>
+            <li><code>double</code> - Números decimales</li>
+            <li><code>string</code> - Cadenas de texto</li>
+            <li><code>char</code> - Caracteres individuales</li>
+            <li><code>vector&lt;int&gt;</code> - Arrays de enteros</li>
+            <li><code>list&lt;int&gt;</code> - Listas enlazadas de enteros</li>
+        </ul>
+    
+        <h2 style="color: #f39c12;">❌ Limitaciones del Runner</h2>
+        <ul>
+            <li><b>1 parámetro máximo</b> por función</li>
+            <li><b>NO soportados:</b> struct, class, map, set, templates</li>
+            <li><b>NO referencias:</b> Solo paso por valor</li>
+            <li><b>Timeout:</b> 2 segundos máximo</li>
+            <li><b>Sin recursión compleja</b> ni lambdas</li>
+            <li><b>Bibliotecas prohibidas:</b> filesystem, network, concurrencia</li>
+        </ul>
+    
+        <h2 style="color: #f39c12;">💡 Consejos para Soluciones</h2>
+        <ul>
+            <li>Usa nombres descriptivos para funciones</li>
+            <li>Incluye <code>#include</code> necesarios</li>
+            <li>Prueba con los ejemplos antes de enviar</li>
+            <li>Considera casos edge (valores límite)</li>
+        </ul>
+        """
+
+
+    def load_json_file(self):
+        """Carga un archivo JSON y lo muestra en el editor"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Seleccionar archivo JSON", "", "JSON Files (*.json)"
+        )
+        if file_path:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    self.json_editor.setPlainText(content)
+                    self.json_status.setText("✅ Archivo cargado correctamente")
+                    self.json_status.setStyleSheet("color: #27ae60;")
+            except Exception as e:
+                self.json_status.setText(f"❌ Error cargando archivo: {str(e)}")
+                self.json_status.setStyleSheet("color: #e74c3c;")
+
+
+    def validate_json(self):
+        """Valida el JSON ingresado"""
+        try:
+            json_text = self.json_editor.toPlainText().strip()
+            if not json_text:
+                self.json_status.setText("❌ JSON vacío")
+                self.json_status.setStyleSheet("color: #e74c3c;")
+                return False
+
+            problem_data = json.loads(json_text)
+
+            # Validar campos requeridos
+            required_fields = ["title", "category", "difficulty", "statement",
+                               "input_type", "output_type", "examples"]
+            for field in required_fields:
+                if field not in problem_data:
+                    self.json_status.setText(f"❌ Campo requerido faltante: {field}")
+                    self.json_status.setStyleSheet("color: #e74c3c;")
+                    return False
+
+            # Validar tipos soportados
+            supported_types = ["bool", "int", "double", "string", "char", "vector<int>", "list<int>"]
+            if problem_data["input_type"] not in supported_types:
+                self.json_status.setText(f"❌ Tipo de entrada no soportado: {problem_data['input_type']}")
+                self.json_status.setStyleSheet("color: #e74c3c;")
+                return False
+
+            if problem_data["output_type"] not in supported_types:
+                self.json_status.setText(f"❌ Tipo de salida no soportado: {problem_data['output_type']}")
+                self.json_status.setStyleSheet("color: #e74c3c;")
+                return False
+
+            self.json_status.setText("✅ JSON válido - Listo para subir")
+            self.json_status.setStyleSheet("color: #27ae60;")
+            return True
+
+        except json.JSONDecodeError as e:
+            self.json_status.setText(f"❌ JSON inválido: {str(e)}")
+            self.json_status.setStyleSheet("color: #e74c3c;")
+            return False
+        except Exception as e:
+            self.json_status.setText(f"❌ Error validando JSON: {str(e)}")
+            self.json_status.setStyleSheet("color: #e74c3c;")
+            return False
+
+    def create_problem_form_tab(self):
+        """Crea el formulario para subir problemas - VERSIÓN CORREGIDA"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+
+        # PRIMERO crear form_status ANTES de cualquier uso
+        self.form_status = QLabel("Complete todos los campos requeridos (*)")
+        self.form_status.setStyleSheet("color: #ccc; padding: 10px; background-color: #2a2a35; border-radius: 4px;")
+        self.form_status.setWordWrap(True)
+
+        # Formulario con validación
+        form_widget = QWidget()
+        form_layout = QFormLayout(form_widget)
+        form_layout.setLabelAlignment(Qt.AlignRight)
+
+        # Campos del formulario
+        self.form_title = QLineEdit()
+        self.form_title.setPlaceholderText("ej: suma_dos_numeros")
+
+        self.form_category = QComboBox()
+        self.form_category.addItems(["Matemáticas", "Algoritmos", "Estructuras de Datos", "Cadenas", "Arrays", "Otros"])
+
+        self.form_difficulty = QComboBox()
+        self.form_difficulty.addItems(["Fácil", "Medio", "Difícil"])
+
+        self.form_input_type = QComboBox()
+        self.form_input_type.addItems(["bool", "int", "double", "string", "char", "vector<int>", "list<int>"])
+
+        self.form_output_type = QComboBox()
+        self.form_output_type.addItems(["bool", "int", "double", "string", "char", "vector<int>", "list<int>"])
+
+        self.form_statement = QTextEdit()
+        self.form_statement.setMaximumHeight(120)
+        self.form_statement.setPlaceholderText("Describe el problema claramente...")
+
+        # Big O como ComboBox
+        self.form_big_o = QComboBox()
+        self.form_big_o.addItems(["O(1)", "O(n)", "O(n^2)", "O(log n)", "O(n log n)", "O(2^n)"])
+        self.form_big_o.setCurrentText("O(n)")
+
+        # Ejemplos dinámicos - CON MÍNIMO 2 Y MÁXIMO 3
+        examples_label = QLabel("Ejemplos (Mínimo 2, Máximo 3):")
+        examples_label.setStyleSheet("color: #fff; font-weight: bold;")
+        form_layout.addRow(examples_label)
+
+        self.examples_widget = QWidget()
+        self.examples_layout = QVBoxLayout(self.examples_widget)
+        self.examples_list = []
+
+        add_example_btn = QPushButton("➕ Agregar Ejemplo")
+        add_example_btn.setStyleSheet(self._button_style("#27ae60"))
+        add_example_btn.clicked.connect(self.add_example_field)
+
+        # Añadir campos al formulario
+        form_layout.addRow("Título*:", self.form_title)
+        form_layout.addRow("Categoría*:", self.form_category)
+        form_layout.addRow("Dificultad*:", self.form_difficulty)
+        form_layout.addRow("Tipo de Entrada*:", self.form_input_type)
+        form_layout.addRow("Tipo de Salida*:", self.form_output_type)
+        form_layout.addRow("Enunciado*:", self.form_statement)
+        form_layout.addRow("Complejidad Esperada*:", self.form_big_o)
+        form_layout.addRow(add_example_btn)
+        form_layout.addRow(self.examples_widget)
+
+        layout.addWidget(form_widget)
+
+        # Añadir 2 ejemplos por defecto
+        self.add_initial_examples()
+
+        # Botón de enviar
+        submit_btn = QPushButton("🚀 Subir Problema a MongoDB")
+        submit_btn.setFixedHeight(45)
+        submit_btn.setStyleSheet(self._button_style("#2980b9"))
+        submit_btn.clicked.connect(self.submit_problem_form)
+        layout.addWidget(submit_btn)
+
+        # FINALMENTE añadir form_status al layout
+        layout.addWidget(self.form_status)
+
+        layout.addStretch()
+        return container
+
+
+    def remove_example_field(self, widget):
+        """Elimina un campo de ejemplo - CON LÍMITE MÍNIMO"""
+        if len(self.examples_list) <= 2:
+            self.form_status.setText("❌ Mínimo 2 ejemplos requeridos")
+            self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+            return
+
+        for i, (input_edit, output_edit, remove_btn, example_widget) in enumerate(self.examples_list):
+            if example_widget == widget:
+                self.examples_list.pop(i)
+                break
+
+        widget.deleteLater()
+        self.update_examples_count()
+
+
+    def update_examples_count(self):
+        """Actualiza el contador de ejemplos"""
+        count = len(self.examples_list)
+        if count < 2:
+            self.form_status.setText(f"❌ Necesitas {2 - count} ejemplo(s) más (mínimo 2)")
+            self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+        elif count == 2:
+            self.form_status.setText("✅ Mínimo de ejemplos alcanzado. Puedes añadir 1 más si lo deseas.")
+            self.form_status.setStyleSheet("color: #27ae60; background-color: #2a2a35;")
+        else:
+            self.form_status.setText("✅ Máximo de ejemplos alcanzado (3)")
+            self.form_status.setStyleSheet("color: #27ae60; background-color: #2a2a35;")
+
+    def submit_problem_form(self):
+        """Envía el problema desde el formulario a MongoDB - VERSIÓN CORREGIDA"""
+        try:
+            print("🚀 INICIANDO SUBIDA DE PROBLEMA...")
+
+            # Validar campos requeridos
+            if not self.form_title.text().strip():
+                self.form_status.setText("❌ El título es requerido")
+                self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+                return
+
+            if not self.form_statement.toPlainText().strip():
+                self.form_status.setText("❌ El enunciado es requerido")
+                self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+                return
+
+            # Validar que haya exactamente 2 o 3 ejemplos VÁLIDOS
+            valid_examples = []
+            for input_edit, output_edit, _, _ in self.examples_list:
+                input_val = input_edit.text().strip()
+                output_val = output_edit.text().strip()
+                if input_val and output_val:
+                    valid_examples.append({
+                        "input_raw": input_val,
+                        "output_raw": output_val
+                    })
+
+            if len(valid_examples) < 2:
+                self.form_status.setText("❌ Se requieren al menos 2 ejemplos válidos")
+                self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+                return
+
+            if len(valid_examples) > 3:
+                self.form_status.setText("❌ Máximo 3 ejemplos permitidos")
+                self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+                return
+
+            # ✅ CORREGIDO: Construir objeto problema CON ESTRUCTURA COMPATIBLE
+            problem_data = {
+                "title": self.form_title.text().strip(),
+                "category": self.form_category.currentText(),
+                "difficulty": self.form_difficulty.currentText(),
+                "statement": self.form_statement.toPlainText().strip(),
+                "input_type": self.form_input_type.currentText(),
+                "output_type": self.form_output_type.currentText(),
+                "function_type": self.form_output_type.currentText(),  # ✅ Compatible con runner
+                "function_name": "solution",  # ✅ Nombre fijo para compatibilidad
+                "examples": valid_examples,
+                "big_o_expected": self.form_big_o.currentText(),  # ✅ Usar ComboBox, no texto libre
+                "run_timeout_s": 2  # ✅ Timeout por defecto
+            }
+
+            print(f"📦 Problema construido:")
+            print(f"   - Título: {problem_data['title']}")
+            print(f"   - Ejemplos: {len(problem_data['examples'])}")
+            print(f"   - Tipo función: {problem_data['function_type']}")
+
+            # Insertar en MongoDB
+            if self.db_handler and hasattr(self.db_handler, 'insert_problem'):
+                self.form_status.setText("🔄 Conectando con MongoDB...")
+                self.form_status.setStyleSheet("color: #f39c12; background-color: #2a2a35;")
+
+                # Forzar actualización de la GUI
+                QApplication.processEvents()
+
+                success = self.db_handler.insert_problem(problem_data)
                 if success:
-                    print("🎉 ¡Progreso guardado en MongoDB!")
+                    self.form_status.setText("✅ Problema subido correctamente a MongoDB")
+                    self.form_status.setStyleSheet("color: #27ae60; background-color: #2a2a35;")
 
-        # ✅ USAR LA VERSIÓN RÁPIDA DE IA
-        self.send_to_ai_feedback_fast(detailed_result, codigo_cpp)
+                    # Limpiar formulario
+                    self.form_title.clear()
+                    self.form_statement.clear()
+                    self.form_big_o.setCurrentIndex(0)
 
-    except Exception as e:
-        print(f"Error en submit_code_for_evaluation: {e}")
+                    # Limpiar ejemplos pero mantener 2 vacíos
+                    for i in reversed(range(self.examples_layout.count())):
+                        widget = self.examples_layout.itemAt(i).widget()
+                        if widget:
+                            widget.deleteLater()
+                    self.examples_list = []
+
+                    # Añadir 2 ejemplos vacíos por defecto
+                    self.add_initial_examples()
+
+                    # ✅ ACTUALIZAR LISTA EN SIDEBAR INMEDIATAMENTE
+                    self.load_problems_into_sidebar()
+                    print("🔄 Lista de problemas actualizada en sidebar")
+
+                else:
+                    self.form_status.setText("❌ Error insertando en la base de datos. Verifica la consola.")
+                    self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+            else:
+                self.form_status.setText("❌ No hay conexión a la base de datos")
+                self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+
+        except Exception as e:
+            error_msg = f"❌ Error crítico subiendo problema: {str(e)}"
+            print(error_msg)
+            import traceback
+            traceback.print_exc()
+            self.form_status.setText(error_msg)
+            self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+
+    def submit_json_problem(self):
+        """Envía el problema desde JSON a MongoDB - VERSIÓN CORREGIDA"""
+        if not self.validate_json():
+            return
+
+        try:
+            json_text = self.json_editor.toPlainText().strip()
+            problem_data = json.loads(json_text)
+
+            # ✅ CORREGIDO: Asegurar estructura compatible
+            required_fields = ["title", "category", "difficulty", "statement",
+                               "input_type", "output_type", "examples"]
+
+            for field in required_fields:
+                if field not in problem_data:
+                    self.json_status.setText(f"❌ Campo requerido faltante: {field}")
+                    self.json_status.setStyleSheet("color: #e74c3c;")
+                    return
+
+            # Asegurar campos de compatibilidad con runner
+            if "function_type" not in problem_data:
+                problem_data["function_type"] = problem_data["output_type"]
+
+            if "function_name" not in problem_data:
+                problem_data["function_name"] = "solution"
+
+            # Validar número de ejemplos
+            if len(problem_data["examples"]) < 2 or len(problem_data["examples"]) > 3:
+                self.json_status.setText("❌ Debe haber entre 2 y 3 ejemplos")
+                self.json_status.setStyleSheet("color: #e74c3c;")
+                return
+
+            print(f"📦 JSON validado - Insertando en MongoDB...")
+            print(f"   - Título: {problem_data['title']}")
+            print(f"   - Ejemplos: {len(problem_data['examples'])}")
+
+            # Insertar en MongoDB
+            if self.db_handler and hasattr(self.db_handler, 'insert_problem'):
+                self.json_status.setText("🔄 Insertando en MongoDB...")
+                self.json_status.setStyleSheet("color: #f39c12;")
+
+                QApplication.processEvents()  # Forzar actualización
+
+                success = self.db_handler.insert_problem(problem_data)
+                if success:
+                    self.json_status.setText("✅ Problema subido correctamente a MongoDB")
+                    self.json_status.setStyleSheet("color: #27ae60;")
+                    self.json_editor.clear()
+
+                    # ✅ ACTUALIZAR LISTA INMEDIATAMENTE
+                    self.load_problems_into_sidebar()
+                    print("✅ Lista de problemas actualizada")
+
+                else:
+                    self.json_status.setText("❌ Error insertando en MongoDB (ver consola)")
+                    self.json_status.setStyleSheet("color: #e74c3c;")
+            else:
+                self.json_status.setText("❌ No hay conexión a la base de datos")
+                self.json_status.setStyleSheet("color: #e74c3c;")
+
+        except Exception as e:
+            error_msg = f"❌ Error subiendo problema: {str(e)}"
+            print(error_msg)
+            self.json_status.setText(error_msg)
+            self.json_status.setStyleSheet("color: #e74c3c;")
+
+    def add_initial_examples(self):
+        """Añade 2 ejemplos iniciales por defecto - SIN ACTUALIZAR ESTADO INICIAL"""
+        for i in range(2):
+            self.add_example_field_silent()
+
+        # Solo actualizar el estado después de crear todos los ejemplos
+        self.update_examples_count()
+
+    def add_example_field_silent(self):
+        """Versión silenciosa de add_example_field para inicialización"""
+        if len(self.examples_list) >= 3:
+            return
+
+        example_widget = QWidget()
+        example_layout = QHBoxLayout(example_widget)
+
+        input_edit = QLineEdit()
+        input_edit.setPlaceholderText("Input (ej: 5, 'hola', [1,2,3])")
+
+        output_edit = QLineEdit()
+        output_edit.setPlaceholderText("Output esperado")
+
+        remove_btn = QPushButton("❌")
+        remove_btn.setFixedSize(30, 30)
+        remove_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c; 
+                color: white; 
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+
+        example_layout.addWidget(QLabel("Input:"))
+        example_layout.addWidget(input_edit)
+        example_layout.addWidget(QLabel("Output:"))
+        example_layout.addWidget(output_edit)
+        example_layout.addWidget(remove_btn)
+
+        self.examples_layout.addWidget(example_widget)
+        self.examples_list.append((input_edit, output_edit, remove_btn, example_widget))
+
+        remove_btn.clicked.connect(lambda: self.remove_example_field(example_widget))
+
+    def add_example_field(self):
+        """Añade campos para un nuevo ejemplo - CON LÍMITE MÁXIMO"""
+        if len(self.examples_list) >= 3:
+            self.form_status.setText("❌ Máximo 3 ejemplos permitidos")
+            self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+            return
+
+        example_widget = QWidget()
+        example_layout = QHBoxLayout(example_widget)
+
+        input_edit = QLineEdit()
+        input_edit.setPlaceholderText("Input (ej: 5, 'hola', [1,2,3])")
+
+        output_edit = QLineEdit()
+        output_edit.setPlaceholderText("Output esperado")
+
+        remove_btn = QPushButton("❌")
+        remove_btn.setFixedSize(30, 30)
+        remove_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c; 
+                color: white; 
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+
+        example_layout.addWidget(QLabel("Input:"))
+        example_layout.addWidget(input_edit)
+        example_layout.addWidget(QLabel("Output:"))
+        example_layout.addWidget(output_edit)
+        example_layout.addWidget(remove_btn)
+
+        self.examples_layout.addWidget(example_widget)
+        self.examples_list.append((input_edit, output_edit, remove_btn, example_widget))
+
+        remove_btn.clicked.connect(lambda: self.remove_example_field(example_widget))
+
+        # Actualizar estado
+        self.update_examples_count()
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = ModernMainWindow()

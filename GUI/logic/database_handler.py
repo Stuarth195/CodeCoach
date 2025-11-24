@@ -317,3 +317,60 @@ class DatabaseHandler:
         if self.client:
             self.client.close()
             print("✅ Conexión MongoDB cerrada")
+
+
+    def insert_problem(self, problem_data):
+        """Inserta un nuevo problema en la colección problems - VERSIÓN CORREGIDA"""
+        if self.problems_collection is None:
+            print("❌ No hay conexión a la colección de problemas")
+            return False
+
+        try:
+            # Verificar que no exista un problema con el mismo título
+            existing = self.problems_collection.find_one({"title": problem_data["title"]})
+            if existing:
+                print(f"❌ Ya existe un problema con el título: {problem_data['title']}")
+                return False
+
+            # ✅ CORREGIR: Asegurar que function_name esté presente
+            if "function_name" not in problem_data:
+                problem_data["function_name"] = "solution"
+
+            # ✅ CORREGIR: Asegurar que function_type sea consistente
+            if "output_type" in problem_data and "function_type" not in problem_data:
+                problem_data["function_type"] = problem_data["output_type"]
+
+            # ✅ CORREGIR: Formato de examples compatible con runner
+            if "examples" in problem_data:
+                for example in problem_data["examples"]:
+                    # Renombrar campos si es necesario
+                    if "input" in example and "input_raw" not in example:
+                        example["input_raw"] = example["input"]
+                    if "output" in example and "output_raw" not in example:
+                        example["output_raw"] = example["output"]
+
+            print(f"📦 Insertando problema en MongoDB: {problem_data['title']}")
+            print(f"   - Ejemplos: {len(problem_data.get('examples', []))}")
+            print(f"   - Tipo función: {problem_data.get('function_type', 'N/A')}")
+
+            result = self.problems_collection.insert_one(problem_data)
+            if result.inserted_id:
+                print(f"✅ Problema '{problem_data['title']}' insertado correctamente en MongoDB")
+
+                # ✅ VERIFICAR INMEDIATA: Buscar el problema recién insertado
+                verify = self.problems_collection.find_one({"title": problem_data["title"]})
+                if verify:
+                    print(f"🔍 Verificación exitosa: Problema encontrado en MongoDB")
+                else:
+                    print(f"⚠️  Advertencia: Problema no encontrado inmediatamente después de insertar")
+
+                return True
+            else:
+                print("❌ Error insertando problema - sin inserted_id")
+                return False
+
+        except Exception as e:
+            print(f"❌ Error crítico insertando problema: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
