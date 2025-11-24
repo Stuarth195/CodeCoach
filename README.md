@@ -260,7 +260,6 @@ CodeCoach/
 
 ---
 
-
 Aquí tienes un **README completamente ordenado**, limpio y listo para **copiar y pegar** en tu proyecto **LeetAI**.
 Incluye **los JSON de los problemas** + **las soluciones en C++**, todo perfectamente organizado.
 No uso bloques especiales fuera del markdown normal (para que GitHub lo lea bien).
@@ -273,27 +272,27 @@ Este repositorio contiene una colección de problemas estilo LeetCode diseñados
 
 Cada problema incluye:
 
-* Estructura JSON (para BD)
-* Descripción del enunciado
-* Ejemplos
-* Solución en C++
+- Estructura JSON (para BD)
+- Descripción del enunciado
+- Ejemplos
+- Solución en C++
 
 ---
 
 # 📘 **Índice de Problemas**
 
-| #  | Nombre             | Categoría           | Dificultad |
-| -- | ------------------ | ------------------- | ---------- |
-| 1  | es_numero_par      | Matemáticas Básicas | Fácil      |
-| 2  | suma_digitos       | Matemáticas         | Fácil      |
-| 3  | invertir_palabra   | Strings             | Fácil      |
-| 4  | calcular_promedio  | Matemáticas         | Fácil      |
-| 5  | es_vocal           | Caracteres          | Fácil      |
-| 6  | encontrar_maximo   | Arrays              | Fácil      |
-| 7  | fibonacci          | Matemáticas         | Medio      |
-| 8  | contar_palabras    | Strings             | Medio      |
-| 9  | es_palindromo      | Strings             | Medio      |
-| 10 | matriz_transpuesta | Matrices            | Difícil    |
+| #   | Nombre             | Categoría           | Dificultad |
+| --- | ------------------ | ------------------- | ---------- |
+| 1   | es_numero_par      | Matemáticas Básicas | Fácil      |
+| 2   | suma_digitos       | Matemáticas         | Fácil      |
+| 3   | invertir_palabra   | Strings             | Fácil      |
+| 4   | calcular_promedio  | Matemáticas         | Fácil      |
+| 5   | es_vocal           | Caracteres          | Fácil      |
+| 6   | encontrar_maximo   | Arrays              | Fácil      |
+| 7   | fibonacci          | Matemáticas         | Medio      |
+| 8   | contar_palabras    | Strings             | Medio      |
+| 9   | es_palindromo      | Strings             | Medio      |
+| 10  | matriz_transpuesta | Matrices            | Difícil    |
 
 ---
 
@@ -315,9 +314,24 @@ Cada problema incluye:
   "function_type": "bool",
   "function_name": "es_numero_par",
   "examples": [
-    { "input_raw": "4", "input_pretty": "Input: n = 4", "output_raw": "1", "output_pretty": "Output: true" },
-    { "input_raw": "7", "input_pretty": "Input: n = 7", "output_raw": "0", "output_pretty": "Output: false" },
-    { "input_raw": "0", "input_pretty": "Input: n = 0", "output_raw": "1", "output_pretty": "Output: true" }
+    {
+      "input_raw": "4",
+      "input_pretty": "Input: n = 4",
+      "output_raw": "1",
+      "output_pretty": "Output: true"
+    },
+    {
+      "input_raw": "7",
+      "input_pretty": "Input: n = 7",
+      "output_raw": "0",
+      "output_pretty": "Output: false"
+    },
+    {
+      "input_raw": "0",
+      "input_pretty": "Input: n = 0",
+      "output_raw": "1",
+      "output_pretty": "Output: true"
+    }
   ]
 }
 ```
@@ -346,9 +360,24 @@ bool es_numero_par(int n) {
   "function_type": "int",
   "function_name": "suma_digitos",
   "examples": [
-    { "input_raw": "123", "input_pretty": "Input: n = 123", "output_raw": "6", "output_pretty": "Output: 6" },
-    { "input_raw": "987", "input_pretty": "Input: n = 987", "output_raw": "24", "output_pretty": "Output: 24" },
-    { "input_raw": "0", "input_pretty": "Input: n = 0", "output_raw": "0", "output_pretty": "Output: 0" }
+    {
+      "input_raw": "123",
+      "input_pretty": "Input: n = 123",
+      "output_raw": "6",
+      "output_pretty": "Output: 6"
+    },
+    {
+      "input_raw": "987",
+      "input_pretty": "Input: n = 987",
+      "output_raw": "24",
+      "output_pretty": "Output: 24"
+    },
+    {
+      "input_raw": "0",
+      "input_pretty": "Input: n = 0",
+      "output_raw": "0",
+      "output_pretty": "Output: 0"
+    }
   ]
 }
 ```
@@ -383,9 +412,24 @@ int suma_digitos(int n) {
   "function_type": "string",
   "function_name": "invertir_palabra",
   "examples": [
-    { "input_raw": "hola", "input_pretty": "Input: s = \"hola\"", "output_raw": "aloh", "output_pretty": "Output: \"aloh\"" },
-    { "input_raw": "mundo", "input_pretty": "Input: s = \"mundo\"", "output_raw": "odnum", "output_pretty": "Output: \"odnum\"" },
-    { "input_raw": "a", "input_pretty": "Input: s = \"a\"", "output_raw": "a", "output_pretty": "Output: \"a\"" }
+    {
+      "input_raw": "hola",
+      "input_pretty": "Input: s = \"hola\"",
+      "output_raw": "aloh",
+      "output_pretty": "Output: \"aloh\""
+    },
+    {
+      "input_raw": "mundo",
+      "input_pretty": "Input: s = \"mundo\"",
+      "output_raw": "odnum",
+      "output_pretty": "Output: \"odnum\""
+    },
+    {
+      "input_raw": "a",
+      "input_pretty": "Input: s = \"a\"",
+      "output_raw": "a",
+      "output_pretty": "Output: \"a\""
+    }
   ]
 }
 ```
@@ -400,8 +444,6 @@ string invertir_palabra(string s) {
 ```
 
 ---
-
-
 
 ## 4. **Es Vocal**
 
@@ -601,7 +643,7 @@ vector<int> invertir_lista_enlazada(vector<int> head) {
     if (head.empty()) {
         return {};
     }
-    
+
     // Crear una copia y usar reverse de algorithm
     vector<int> resultado = head;
     reverse(resultado.begin(), resultado.end());
@@ -611,4 +653,156 @@ vector<int> invertir_lista_enlazada(vector<int> head) {
 
 ---
 
+# **Problema: substring_palindromo_mas_largo**
 
+## **Descripción**
+
+Dada una cadena `s`, encuentra el **substring palíndromo más largo** que contiene.
+Debes retornar ese substring.
+
+---
+
+## **JSON (MongoDB)**
+
+```json
+{
+  "title": "substring_palindromo_mas_largo",
+  "category": "Strings",
+  "difficulty": "Difícil",
+  "statement": "Dada una cadena s, retorna el substring palíndromo más largo contenido en ella.",
+  "big_o_expected": "O(n^2)",
+  "function_type": "string",
+  "function_name": "substring_palindromo_mas_largo",
+  "examples": [
+    {
+      "input_raw": "babad",
+      "input_pretty": "Input: s = \"babad\"",
+      "output_raw": "bab",
+      "output_pretty": "Output: \"bab\" o \"aba\""
+    },
+    {
+      "input_raw": "cbbd",
+      "input_pretty": "Input: s = \"cbbd\"",
+      "output_raw": "bb",
+      "output_pretty": "Output: \"bb\""
+    },
+    {
+      "input_raw": "a",
+      "input_pretty": "Input: s = \"a\"",
+      "output_raw": "a",
+      "output_pretty": "Output: \"a\""
+    }
+  ]
+}
+```
+
+---
+
+## **Solución C++**
+
+```cpp
+#include <string>
+#include <algorithm>
+using namespace std;
+
+string substring_palindromo_mas_largo(string s) {
+    if (s.empty()) return "";
+
+    int start = 0, max_len = 1;
+    int n = s.length();
+
+    auto expandir_desde_centro = [&](int left, int right) {
+        while (left >= 0 && right < n && s[left] == s[right]) {
+            left--;
+            right++;
+        }
+        return right - left - 1;
+    };
+
+    for (int i = 0; i < n; i++) {
+        int len1 = expandir_desde_centro(i, i);
+        int len2 = expandir_desde_centro(i, i + 1);
+
+        int len = max(len1, len2);
+
+        if (len > max_len) {
+            max_len = len;
+            start = i - (len - 1) / 2;
+        }
+    }
+
+    return s.substr(start, max_len);
+}
+```
+
+---
+
+# 📌 **Problema: numero_palindromo (versión de cadenas)**
+
+_(Asumo que este es el segundo problema que deseas agregar, basado en tu otro código de palíndromos.)_
+Si quieres otro distinto, solo dímelo y lo cambio.
+
+---
+
+## **Descripción**
+
+Dado un número entero `x`, determina si es un palíndromo sin convertirlo completamente en string.
+Retorna `true` si lo es, `false` si no.
+
+---
+
+## **JSON (MongoDB)**
+
+```json
+{
+  "title": "numero_palindromo",
+  "category": "Matemáticas",
+  "difficulty": "Medio",
+  "statement": "Dado un entero x, retorna true si es un número palíndromo.",
+  "big_o_expected": "O(log n)",
+  "function_type": "bool",
+  "function_name": "numero_palindromo",
+  "examples": [
+    {
+      "input_raw": "121",
+      "output_raw": "true",
+      "output_pretty": "Input: x = 121 → Output: true"
+    },
+    {
+      "input_raw": "-121",
+      "output_raw": "false",
+      "output_pretty": "Input: x = -121 → Output: false"
+    },
+    {
+      "input_raw": "10",
+      "output_raw": "false",
+      "output_pretty": "Input: x = 10 → Output: false"
+    }
+  ]
+}
+```
+
+---
+
+## **Solución C++**
+
+```cpp
+#include <iostream>
+using namespace std;
+
+bool numero_palindromo(int x) {
+    if (x < 0 || (x % 10 == 0 && x != 0)) {
+        return false;
+    }
+
+    int reverso = 0;
+    while (x > reverso) {
+        reverso = reverso * 10 + (x % 10);
+        x /= 10;
+    }
+
+    return x == reverso || x == reverso / 10;
+}
+```
+
+---
