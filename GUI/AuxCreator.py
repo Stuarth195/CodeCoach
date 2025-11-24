@@ -1536,52 +1536,51 @@ class ModernMainWindow(QMainWindow):
             self.ai_feedback.setPlainText(f"❌ Error: {str(e)}")
 
     def _format_eval_results_for_ai(self, detailed_result):
-        """Formatea los resultados de evaluación para la API de IA, enfocado en análisis de código"""
+        """Formatea resultados para IA - ENFOCADO EN ERRORES"""
         status = detailed_result.get('status', 'unknown')
         summary = detailed_result.get('summary', 'No summary')
         passed_count = detailed_result.get('passed_count', 0)
         total_tests = detailed_result.get('total_tests', 0)
-        score = detailed_result.get('score', 0)
-        execution_time = detailed_result.get('execution_time', 0)
         problem_solved = detailed_result.get('problem_solved', False)
 
+        # Información básica
         formatted_results = f"""
-    INFORMACIÓN DE EJECUCIÓN:
-    - Estado: {status.upper()}
-    - Problema resuelto: {'SÍ' if problem_solved else 'NO'}
-    - Pruebas pasadas: {passed_count}/{total_tests}
-    - Tiempo de ejecución: {execution_time}ms
+    ESTADO: {status.upper()}
+    PRUEBAS: {passed_count}/{total_tests} pasadas
+    PROBLEMA RESUELTO: {'SÍ' if problem_solved else 'NO'}
     """
 
-        # Solo agregar detalles de pruebas si hay errores
-        if status != "success" and status != "compile_error":
+        # Solo agregar detalles específicos de errores
+        if status == "compile_error":
+            compilation_output = detailed_result.get('compilation_output', '')
+            # Extraer primeras líneas de error
+            error_lines = []
+            for line in compilation_output.split('\n'):
+                if 'error' in line.lower():
+                    error_lines.append(line.strip())
+                    if len(error_lines) >= 2:  # Máximo 2 líneas de error
+                        break
+
+            if error_lines:
+                formatted_results += "\nERRORES DE COMPILACIÓN:\n"
+                for error in error_lines[:2]:
+                    formatted_results += f"- {error}\n"
+
+        elif status == "runtime_error":
+            formatted_results += "\nERROR EN EJECUCIÓN: Timeout o crash\n"
+
+        elif not problem_solved and passed_count < total_tests:
+            # Mostrar algunos tests fallidos
             tests = detailed_result.get('tests', [])
-            if tests:
-                formatted_results += "\nDETALLES DE PRUEBAS FALLIDAS:\n"
-                failed_tests = [test for test in tests if not test.get('passed', False)]
-                for i, test in enumerate(failed_tests[:3], 1):  # Máximo 3 tests fallidos
-                    test_id = test.get('test_id', f'Test_{i}')
+            failed_tests = [test for test in tests if not test.get('passed', False)]
+
+            if failed_tests:
+                formatted_results += f"\nPRUEBAS FALLIDAS: {len(failed_tests)}\n"
+                for i, test in enumerate(failed_tests[:2]):  # Máximo 2 tests
                     input_val = test.get('input', 'N/A')
                     obtained = test.get('obtained', 'N/A')
                     expected = test.get('expected', 'N/A')
-                    formatted_results += f"  ❌ {test_id}:\n"
-                    formatted_results += f"     Input: {input_val}\n"
-                    formatted_results += f"     Obtenido: {obtained}\n"
-                    formatted_results += f"     Esperado: {expected}\n\n"
-
-        # Información de compilación si hay error
-        if status == "compile_error":
-            compilation_output = detailed_result.get('compilation_output', '')
-            # Limitar la salida de compilación a las primeras líneas
-            compilation_lines = compilation_output.split('\n')[:10]
-            short_compilation = '\n'.join(compilation_lines)
-            formatted_results += f"\nERRORES DE COMPILACIÓN (primeras 10 líneas):\n{short_compilation}"
-
-            if len(compilation_output.split('\n')) > 10:
-                # ✅ Corregido para Python 3.11
-                num_lines = len(compilation_output.split('\n'))
-                remaining_lines = num_lines - 10
-                formatted_results += f"\n... y {remaining_lines} líneas más"
+                    formatted_results += f"Test {i + 1}: Input={input_val}, Esperado={expected}, Obtenido={obtained}\n"
 
         return formatted_results
 
@@ -1599,75 +1598,54 @@ class ModernMainWindow(QMainWindow):
         except Exception as e:
             self.ai_feedback.setPlainText(f"❌ Error procesando respuesta: {str(e)}")
 
-    def _format_general_feedback(self, feedback):
-        """Formatea feedback general cuando no se detecta análisis de complejidad"""
-        return f"""🤖 ANÁLISIS GENERAL DEL CÓDIGO
-    ==================================================
-    {feedback}
-
-    ⚠️  Nota: No se detectó análisis específico de complejidad algorítmica.
-    El análisis se centra en la funcionalidad general del código."""
-
     def _format_ai_feedback(self, feedback):
-        """Formatea el feedback de IA en mensajes simples y directos"""
+        """Formatea el feedback de IA para mejor legibilidad"""
         if not feedback:
-            return "No se recibió feedback de la IA."
+            return "🤖 No se recibió análisis de IA."
 
-        # Convertir a minúsculas para búsqueda más fácil
-        feedback_lower = feedback.lower()
+        # Si ya está bien formateado, mantenerlo
+        if any(emoji in feedback for emoji in ["✅", "🔧", "⚡", "🎯", "💡", "📊"]):
+            return feedback
 
-        # Buscar indicadores de código correcto
-        correct_indicators = [
-            'correcto', 'correcta', 'bien', 'éxito', 'success',
-            'funciona', 'adecuado', 'apropiado', 'cumple'
-        ]
+        # Convertir feedback simple en formato estructurado
+        lines = [line.strip() for line in feedback.split('\n') if line.strip()]
 
-        # Buscar complejidad algorítmica
-        complexity_found = False
-        complexity_lines = []
+        if len(lines) <= 2:
+            return f"💡 **Análisis:**\n\n{feedback}"
 
-        lines = feedback.split('\n')
+        # Agrupar por categorías detectadas
+        sections = []
+        current_section = []
+
         for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Detectar líneas de complejidad
-            if any(keyword in line.lower() for keyword in ['o(', 'complejidad', 'big o', 'o(n)', 'o(1)', 'o(log']):
-                complexity_found = True
-                complexity_lines.append(line)
-
-        # Determinar si el código es correcto
-        is_correct = any(indicator in feedback_lower for indicator in correct_indicators) or complexity_found
-
-        if is_correct and complexity_found:
-            # Código correcto - mostrar complejidad
-            complexity_display = "\n".join(complexity_lines[:3])  # Mostrar máximo 3 líneas de complejidad
-            return f"🎉 ¡Muy bien! Tu algoritmo es de complejidad:\n\n{complexity_display}"
-
-        elif is_correct:
-            # Código correcto pero no se encontró complejidad específica
-            return "✅ ¡Buen trabajo! Tu código parece correcto.\n\n🤖 La IA no detectó problemas mayores, pero revisa la complejidad manualmente."
-
-        else:
-            # Código con errores - buscar pistas
-            hint_lines = []
-            for line in lines:
-                line_lower = line.lower()
-                if any(keyword in line_lower for keyword in
-                       ['error', 'problema', 'pista', 'sugerencia', 'recomendación', 'debería', 'podría']):
-                    if len(line.strip()) > 10:  # Solo líneas con contenido sustancial
-                        hint_lines.append(line.strip())
-
-            if hint_lines:
-                # Tomar las 2-3 pistas más relevantes
-                relevant_hints = hint_lines[:3]
-                hints_text = "\n• ".join(relevant_hints)
-                return f"🔧 Hay algunos errores. Te recomiendo pensar en:\n\n• {hints_text}"
+            if line.startswith(('•', '-', '*')) or any(
+                    keyword in line.lower() for keyword in ['sugerencia', 'revisa', 'verifica', 'considera']):
+                if current_section:
+                    sections.append(current_section)
+                current_section = [line]
             else:
-                # Si no se encuentran pistas específicas, mostrar feedback general
-                short_feedback = feedback[:300] + "..." if len(feedback) > 300 else feedback
-                return f"📝 El código necesita ajustes:\n\n{short_feedback}"
+                current_section.append(line)
+
+        if current_section:
+            sections.append(current_section)
+
+        # Formatear secciones
+        formatted = []
+        for section in sections:
+            if section:
+                header = section[0]
+                if any(keyword in header.lower() for keyword in ['complejidad', 'eficiencia']):
+                    formatted.append(f"📊 {header}")
+                elif any(keyword in header.lower() for keyword in ['pista', 'sugerencia']):
+                    formatted.append(f"💡 {header}")
+                else:
+                    formatted.append(f"🔍 {header}")
+
+                for item in section[1:]:
+                    formatted.append(f"   {item}")
+
+        return "\n".join(formatted) if formatted else feedback
+
 
     def update_problem_display(self, problem_info):
         """Actualiza la visualización del problema en la GUI"""
@@ -1707,9 +1685,8 @@ class ModernMainWindow(QMainWindow):
         self.problem_section_title.setText(title)
         self.problem_section_desc.setText(description_html)
 
-
     def _create_enhanced_ai_prompt(self, current_code, problem_statement, eval_results):
-        """Crea el payload CORRECTO para la API de DialoGPT"""
+        """Crea el payload para el análisis inteligente"""
 
         ai_data = {
             "codigo_usuario": current_code,
@@ -1718,13 +1695,15 @@ class ModernMainWindow(QMainWindow):
             "lenguaje": "C++",
             "instrucciones_especificas": """
             Analiza este código C++ y proporciona:
-            1. COMPLEJIDAD: Si el código es correcto, da la complejidad algorítmica en notación Big O
-            2. PISTAS: Si hay errores, da 1-2 pistas específicas para corregirlos
-            3. SÉ BREVE: Máximo 3-4 líneas de respuesta
+            1. COMPLEJIDAD: Análisis de complejidad algorítmica en notación Big O
+            2. PISTAS: Si hay errores, da pistas específicas para corregirlos (NO soluciones completas)
+            3. RECOMENDACIONES: Sugerencias para mejorar la eficiencia o estilo
+            4. SÉ PRÁCTICO: Enfócate en ayudar a entender, no en dar la respuesta
             """
         }
 
         return ai_data
+
 
     def check_ai_server_quick(self):
         """Verificación rápida del servidor IA"""
@@ -2040,6 +2019,15 @@ class ModernMainWindow(QMainWindow):
             <li>Considera casos edge (valores límite)</li>
             <li><b>Caracteres permitidos en nombres:</b> letras, números, _ (sin espacios)</li>
         </ul>
+                <h2 style="color: #f39c12;">🤖 Análisis de IA</h2>
+        <p>El sistema de IA te proporcionará <b>pistas prácticas</b> para mejorar tu código:</p>
+        <ul>
+            <li>🔧 <b>Errores de compilación:</b> Sugerencias de sintaxis y includes</li>
+            <li>⚡ <b>Errores de ejecución:</b> Pistas sobre bucles y memoria</li>
+            <li>🎯 <b>Pruebas fallidas:</b> Consejos de lógica y casos extremos</li>
+            <li>💡 <b>Análisis general:</b> Mejoras de estilo y eficiencia</li>
+        </ul>
+        <p><i>La IA da pistas, no soluciones completas. ¡Aprende resolviendo!</i></p>
             """
 
 
