@@ -401,41 +401,9 @@ string invertir_palabra(string s) {
 
 ---
 
-## 4. **Calcular Promedio**
 
-### JSON
 
-```json
-{
-  "title": "calcular_promedio",
-  "category": "Matemáticas",
-  "difficulty": "Fácil",
-  "statement": "Dado un arreglo de números, calcula el promedio.",
-  "big_o_expected": "O(n)",
-  "function_type": "double",
-  "function_name": "calcular_promedio",
-  "examples": [
-    { "input_raw": "[1,2,3,4,5]", "output_raw": "3.0" },
-    { "input_raw": "[10,20,30]", "output_raw": "20.0" },
-    { "input_raw": "[0]", "output_raw": "0.0" }
-  ]
-}
-```
-
-### Solución C++
-
-```cpp
-double calcular_promedio(vector<int> nums) {
-    if (nums.empty()) return 0.0;
-    double suma = 0;
-    for (int n : nums) suma += n;
-    return suma / nums.size();
-}
-```
-
----
-
-## 5. **Es Vocal**
+## 4. **Es Vocal**
 
 ### JSON
 
@@ -467,42 +435,7 @@ bool es_vocal(char c) {
 
 ---
 
-## 6. **Encontrar Máximo**
-
-### JSON
-
-```json
-{
-  "title": "encontrar_maximo",
-  "category": "Arrays",
-  "difficulty": "Fácil",
-  "statement": "Dado un arreglo, retorna el valor máximo.",
-  "big_o_expected": "O(n)",
-  "function_type": "int",
-  "function_name": "encontrar_maximo",
-  "examples": [
-    { "input_raw": "[1,5,3,9,2]", "output_raw": "9" },
-    { "input_raw": "[-1,-5,-3]", "output_raw": "-1" },
-    { "input_raw": "[42]", "output_raw": "42" }
-  ]
-}
-```
-
-### Solución C++
-
-```cpp
-int encontrar_maximo(vector<int> nums) {
-    if (nums.empty()) return INT_MIN;
-    int maximo = nums[0];
-    for (int n : nums)
-        if (n > maximo) maximo = n;
-    return maximo;
-}
-```
-
----
-
-## 7. **Fibonacci**
+## 5. **Fibonacci**
 
 ### JSON
 
@@ -540,7 +473,7 @@ int fibonacci(int n) {
 
 ---
 
-## 8. **Contar Palabras**
+## 6. **Contar Palabras**
 
 ### JSON
 
@@ -581,7 +514,7 @@ int contar_palabras(string s) {
 
 ---
 
-## 9. **Es Palíndromo**
+## 7. **Es Palíndromo**
 
 ### JSON
 
@@ -619,7 +552,7 @@ bool es_palindromo(string s) {
 
 ---
 
-## 10. **invertir lista enlazada**
+## 8. **invertir lista enlazada**
 
 ### JSON
 
