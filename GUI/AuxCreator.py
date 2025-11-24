@@ -5,7 +5,7 @@ import subprocess
 import time
 import requests
 import json
-
+import re
 from PyQt5.QtCore import (
     Qt, QSize, QPropertyAnimation, QEasingCurve,
     pyqtProperty, pyqtSignal, QThread, QProcess
@@ -22,7 +22,8 @@ from PyQt5.QtWidgets import (
     QFrame, QProgressBar, QStackedWidget, QMessageBox,
     QFormLayout, QLineEdit, QComboBox, QFileDialog
 )
-
+from PyQt5.QtGui import QRegExpValidator
+from PyQt5.QtCore import QRegExp
 # Configurar paths
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
@@ -2033,12 +2034,13 @@ class ModernMainWindow(QMainWindow):
     
         <h2 style="color: #f39c12;">💡 Consejos para Soluciones</h2>
         <ul>
-            <li>Usa nombres descriptivos para funciones</li>
+            <li><b>Nombre de función:</b> Usa EXACTAMENTE el nombre especificado en el problema</li>
             <li>Incluye <code>#include</code> necesarios</li>
             <li>Prueba con los ejemplos antes de enviar</li>
             <li>Considera casos edge (valores límite)</li>
+            <li><b>Caracteres permitidos en nombres:</b> letras, números, _ (sin espacios)</li>
         </ul>
-        """
+            """
 
 
     def load_json_file(self):
@@ -2089,7 +2091,18 @@ class ModernMainWindow(QMainWindow):
                 self.json_status.setText(f"❌ Tipo de salida no soportado: {problem_data['output_type']}")
                 self.json_status.setStyleSheet("color: #e74c3c;")
                 return False
+            # ✅ NUEVO: Validar nombre de función en JSON
+            if "function_name" not in problem_data:
+                self.json_status.setText("❌ Campo requerido faltante: function_name")
+                self.json_status.setStyleSheet("color: #e74c3c;")
+                return False
 
+            function_name = problem_data["function_name"]
+            import re
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', function_name):
+                self.json_status.setText("❌ Nombre de función inválido. Solo letras, números y _")
+                self.json_status.setStyleSheet("color: #e74c3c;")
+                return False
             self.json_status.setText("✅ JSON válido - Listo para subir")
             self.json_status.setStyleSheet("color: #27ae60;")
             return True
@@ -2104,7 +2117,7 @@ class ModernMainWindow(QMainWindow):
             return False
 
     def create_problem_form_tab(self):
-        """Crea el formulario para subir problemas - VERSIÓN CORREGIDA"""
+        """Crea el formulario para subir problemas - CON NOMBRE DE FUNCIÓN PERSONALIZABLE"""
         container = QWidget()
         layout = QVBoxLayout(container)
 
@@ -2134,6 +2147,15 @@ class ModernMainWindow(QMainWindow):
         self.form_output_type = QComboBox()
         self.form_output_type.addItems(["bool", "int", "double", "string", "char", "vector<int>", "list<int>"])
 
+        # ✅ NUEVO: Campo para nombre de función personalizado
+        self.form_function_name = QLineEdit()
+        self.form_function_name.setPlaceholderText("solution")
+        self.form_function_name.setText("solution")  # Valor por defecto
+
+        # Validador para solo letras, números y _
+        validator = QRegExpValidator(QRegExp("[a-zA-Z_][a-zA-Z0-9_]*"))
+        self.form_function_name.setValidator(validator)
+
         self.form_statement = QTextEdit()
         self.form_statement.setMaximumHeight(120)
         self.form_statement.setPlaceholderText("Describe el problema claramente...")
@@ -2162,6 +2184,7 @@ class ModernMainWindow(QMainWindow):
         form_layout.addRow("Dificultad*:", self.form_difficulty)
         form_layout.addRow("Tipo de Entrada*:", self.form_input_type)
         form_layout.addRow("Tipo de Salida*:", self.form_output_type)
+        form_layout.addRow("Nombre de Función*:", self.form_function_name)  # ✅ NUEVO CAMPO
         form_layout.addRow("Enunciado*:", self.form_statement)
         form_layout.addRow("Complejidad Esperada*:", self.form_big_o)
         form_layout.addRow(add_example_btn)
@@ -2184,7 +2207,6 @@ class ModernMainWindow(QMainWindow):
 
         layout.addStretch()
         return container
-
 
     def remove_example_field(self, widget):
         """Elimina un campo de ejemplo - CON LÍMITE MÍNIMO"""
@@ -2241,6 +2263,19 @@ class ModernMainWindow(QMainWindow):
                         "input_raw": input_val,
                         "output_raw": output_val
                     })
+            # ✅ NUEVO: Validar nombre de función
+            function_name = self.form_function_name.text().strip()
+            if not function_name:
+                self.form_status.setText("❌ El nombre de la función es requerido")
+                self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+                return
+
+            # Validar que solo contenga caracteres permitidos
+            import re
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', function_name):
+                self.form_status.setText("❌ Nombre de función inválido. Solo letras, números y _")
+                self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
+                return
 
             if len(valid_examples) < 2:
                 self.form_status.setText("❌ Se requieren al menos 2 ejemplos válidos")
@@ -2252,19 +2287,25 @@ class ModernMainWindow(QMainWindow):
                 self.form_status.setStyleSheet("color: #e74c3c; background-color: #2a2a35;")
                 return
 
-            # ✅ CORREGIDO: Construir objeto problema CON ESTRUCTURA COMPATIBLE
+            # ✅ CORREGIDO: Incluir nombre de función personalizado
+            function_name = self.form_function_name.text().strip()
+            statement_text = self.form_statement.toPlainText().strip()
+
+            # Añadir instrucción sobre el nombre de función al statement
+            full_statement = f"{statement_text}\n\nLa función debe llamarse: {function_name}"
+
             problem_data = {
                 "title": self.form_title.text().strip(),
                 "category": self.form_category.currentText(),
                 "difficulty": self.form_difficulty.currentText(),
-                "statement": self.form_statement.toPlainText().strip(),
+                "statement": full_statement,  # ✅ Statement con nombre de función
                 "input_type": self.form_input_type.currentText(),
                 "output_type": self.form_output_type.currentText(),
-                "function_type": self.form_output_type.currentText(),  # ✅ Compatible con runner
-                "function_name": "solution",  # ✅ Nombre fijo para compatibilidad
+                "function_type": self.form_output_type.currentText(),
+                "function_name": function_name,  # ✅ Nombre personalizado
                 "examples": valid_examples,
-                "big_o_expected": self.form_big_o.currentText(),  # ✅ Usar ComboBox, no texto libre
-                "run_timeout_s": 2  # ✅ Timeout por defecto
+                "big_o_expected": self.form_big_o.currentText(),
+                "run_timeout_s": 2
             }
 
             print(f"📦 Problema construido:")
@@ -2287,6 +2328,7 @@ class ModernMainWindow(QMainWindow):
 
                     # Limpiar formulario
                     self.form_title.clear()
+                    self.form_function_name.setText("solution")
                     self.form_statement.clear()
                     self.form_big_o.setCurrentIndex(0)
 
