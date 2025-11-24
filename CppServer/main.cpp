@@ -1,17 +1,36 @@
 // main.cpp
 #include <iostream>
 #include <string>
+#include <csignal>
+#include <cstdlib>
 #include "RequestHandler.h"
 #include "format.h"
-#include "runner.h" // Incluimos el nuevo runner
+#include "runner.h"
 #include "json.hpp"
 
 using json = nlohmann::json;
 
+// Variable global para manejar la señal de interrupción
+volatile sig_atomic_t stop_server = 0;
+
+// Manejador de señal para Ctrl+C
+void signalHandler(int signal)
+{
+    if (signal == SIGINT)
+    {
+        std::cout << "\n\n🛑 Señal Ctrl+C recibida. Cerrando servidor..." << std::endl;
+        stop_server = 1;
+    }
+}
+
 int main()
 {
+    // Registrar el manejador de señales para Ctrl+C
+    std::signal(SIGINT, signalHandler);
+
     std::cout << "🚀 Iniciando servidor C++ CodeCoach..." << std::endl;
     std::cout << "📍 Escuchando en: http://localhost:5000" << std::endl;
+    std::cout << "💡 Presiona Ctrl+C para detener el servidor" << std::endl;
 
     RequestHandler handler;
 
@@ -49,7 +68,9 @@ int main()
         // y solo compilará.
         return runner::evaluate_submission(requestBody); });
 
+    // Iniciar servidor
     handler.startServer(5000);
 
+    std::cout << "👋 Servidor cerrado correctamente." << std::endl;
     return 0;
 }
