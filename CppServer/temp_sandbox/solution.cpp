@@ -8,11 +8,8 @@
 using namespace std;
 
 // --- User Code ---
-bool Es_Uno(int x)
-{
-for 
-
-return 1 == x
+bool es_numero_par(int n) {
+    return n % 2 == 0
 }
 // -----------------
 
@@ -69,10 +66,10 @@ string listToString(const list<int>& lst) {
 
 int main() {
     
-    // Test 1: 1
+    // Test 1: 4
     try {
-        int input_val = 1;
-        bool result = Es_Uno(input_val);
+        int input_val = 4;
+        bool result = es_numero_par(input_val);
         cout << (result ? "1" : "0") << endl;
     } catch(const exception& e) { 
         cout << "ERROR_RUNTIME: " << e.what() << endl; 
@@ -80,10 +77,10 @@ int main() {
         cout << "ERROR_RUNTIME_UNKNOWN" << endl; 
     }
     
-    // Test 2: 12
+    // Test 2: 7
     try {
-        int input_val = 12;
-        bool result = Es_Uno(input_val);
+        int input_val = 7;
+        bool result = es_numero_par(input_val);
         cout << (result ? "1" : "0") << endl;
     } catch(const exception& e) { 
         cout << "ERROR_RUNTIME: " << e.what() << endl; 
@@ -91,10 +88,10 @@ int main() {
         cout << "ERROR_RUNTIME_UNKNOWN" << endl; 
     }
     
-    // Test 3: 1213
+    // Test 3: 0
     try {
-        int input_val = 1213;
-        bool result = Es_Uno(input_val);
+        int input_val = 0;
+        bool result = es_numero_par(input_val);
         cout << (result ? "1" : "0") << endl;
     } catch(const exception& e) { 
         cout << "ERROR_RUNTIME: " << e.what() << endl; 

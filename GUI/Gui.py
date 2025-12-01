@@ -1,147 +1,119 @@
-# Gui.py - REEMPLAZAR el contenido completo con:
+# Gui.py
 import sys
 import os
 import subprocess
 import threading
 import time
 import requests
+from PyQt5.QtWidgets import QApplication
+from LoginWindow import LoginWindow
 
-# Configurar paths ANTES de cualquier import
+# Configurar paths
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 
 
-# Gui.py - REEMPLAZAR completamente la función start_ai_server()
+def kill_process_on_port(port):
+    """Mata cualquier proceso que esté ocupando el puerto especificado"""
+    print(f"🧹 Limpiando puerto {port}...")
+    try:
+        if sys.platform == "win32":
+            # Encontrar el PID
+            cmd = f"netstat -ano | findstr :{port}"
+            output = subprocess.check_output(cmd, shell=True).decode()
+            lines = output.strip().split('\n')
+            for line in lines:
+                parts = line.split()
+                if len(parts) > 4:
+                    pid = parts[-1]
+                    # Matar el proceso
+                    subprocess.run(f"taskkill /F /PID {pid}", shell=True, stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL)
+                    print(f"💀 Proceso {pid} eliminado del puerto {port}")
+    except:
+        pass  # Si falla o no hay proceso, continuamos
 
-# Gui.py - REEMPLAZAR la función start_ai_server() completa:
 
 def start_ai_server():
-    """Inicia el servidor de IA con manejo de puertos ocupados"""
+    """Inicia el servidor de IA asegurando que usa el código nuevo"""
+    port = 8000
 
-    def check_port(port):
-        """Verifica si un puerto está disponible"""
-        import socket
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(('127.0.0.1', port))
-                return True
-        except OSError:
-            return False
+    # 1. Matar zombies
+    kill_process_on_port(port)
+    time.sleep(1)  # Dar tiempo al sistema
 
-    def find_available_port(start_port=8000, max_attempts=10):
-        """Encuentra un puerto disponible"""
-        for port in range(start_port, start_port + max_attempts):
-            if check_port(port):
-                return port
-        return None
-
-    def run_server(port):
-        try:
-            print(f"🚀 Iniciando servidor de IA en puerto {port}...")
-            process = subprocess.Popen([
-                sys.executable, "-m", "uvicorn",
-                "analizador_api:app",
-                "--host", "127.0.0.1",
-                "--port", str(port)
-            ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1
-            )
-
-            def read_stdout():
-                for line in process.stdout:
-                    line = line.strip()
-                    if line:
-                        print(f"[AI Server] {line}")
-
-            def read_stderr():
-                for line in process.stderr:
-                    line = line.strip()
-                    if line:
-                        print(f"[AI Server ERROR] {line}")
-
-            threading.Thread(target=read_stdout, daemon=True).start()
-            threading.Thread(target=read_stderr, daemon=True).start()
-
-            return process, port
-
-        except Exception as e:
-            print(f"❌ Error iniciando servidor IA: {e}")
-            return None, None
-
-    # Verificar si ya hay un servidor IA corriendo
-    print("🔍 Buscando servidor de IA existente...")
-    for port in range(8000, 8010):
-        try:
-            response = requests.get(f"http://127.0.0.1:{port}/health", timeout=2)
-            if response.status_code == 200:
-                print(f"✅ Servidor IA ya ejecutándose en puerto {port}")
-                # Guardar el puerto para uso futuro
-                with open("ai_port.txt", "w") as f:
-                    f.write(str(port))
-                return True
-        except:
-            continue
-
-    # Si no hay servidor, iniciar uno nuevo
-    available_port = find_available_port()
-    if available_port is None:
-        print("❌ No se pudo encontrar puerto disponible para IA")
-        return False
-
-    process, port = run_server(available_port)
-    if process is None:
-        return False
-
-    # Guardar el puerto para uso futuro
-    with open("ai_port.txt", "w") as f:
-        f.write(str(port))
-
-    # Esperar a que esté listo (más rápido)
-    print(f"⏳ Esperando servidor IA (puerto {port})...")
-    for i in range(10):  # 20 segundos máximo
-        try:
-            response = requests.get(f"http://127.0.0.1:{port}/health", timeout=2)
-            if response.status_code == 200:
-                print(f"✅ Servidor de IA listo en puerto {port}!")
-                return True
-        except:
-            pass
-        time.sleep(2)
-
-    print("⚠️  Servidor IA iniciado pero no respondió inmediatamente")
-    return True
-def main():
-    """Módulo principal de ejecución"""
+    # 2. Iniciar el servidor correcto (analizador_api)
     try:
-        from PyQt5.QtWidgets import QApplication
-        from LoginWindow import LoginWindow
+        print(f"🚀 Iniciando servidor Gemini en puerto {port}...")
 
+        # Ocultar ventana de consola en Windows
+        startupinfo = None
+        if sys.platform == "win32":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+        process = subprocess.Popen([
+            sys.executable, "-m", "uvicorn",
+            "analizador_api:app",  # <--- ESTO ES CLAVE: Usa el archivo de Gemini
+            "--host", "127.0.0.1",
+            "--port", str(port)
+        ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            startupinfo=startupinfo
+        )
+
+        # Hilos para leer la salida sin bloquear
+        def read_stream(stream, prefix):
+            for line in stream:
+                if line.strip():
+                    print(f"[{prefix}] {line.strip()}")
+
+        threading.Thread(target=read_stream, args=(process.stdout, "IA"), daemon=True).start()
+        threading.Thread(target=read_stream, args=(process.stderr, "IA Error"), daemon=True).start()
+
+        # Guardar puerto
+        with open("ai_port.txt", "w") as f:
+            f.write(str(port))
+
+        # Esperar confirmación de salud
+        print("⏳ Esperando respuesta del cerebro IA...")
+        for _ in range(15):
+            try:
+                if requests.get(f"http://127.0.0.1:{port}/health", timeout=1).status_code == 200:
+                    print("✅ Servidor IA (Gemini) listo y respondiendo.")
+                    return True
+            except:
+                time.sleep(1)
+
+        print("⚠️ El servidor IA arrancó pero no responde al health check.")
+        return True  # Retornamos True para no bloquear la app
+
+    except Exception as e:
+        print(f"❌ Error fatal iniciando IA: {e}")
+        return False
+
+
+def main():
+    try:
         app = QApplication(sys.argv)
-
-        # Configurar estilo de la aplicación
         app.setStyle('Fusion')
         app.setApplicationName("leetAI")
-        app.setApplicationVersion("1.0.0")
 
-        print("🚀 Iniciando leetAI...")
+        print("🚀 Arrancando sistema...")
 
-        # ✅ INICIAR SERVIDOR DE IA SIN BLOQUEAR LA UI
+        # Iniciar IA antes de la ventana
         start_ai_server()
 
         login_window = LoginWindow()
         login_window.show()
-        print("✅ Ventana de login mostrada")
 
-        # Ejecutar loop de la aplicación
         return app.exec_()
 
     except Exception as e:
-        print(f"ERROR CRÍTICO: No se pudo iniciar la aplicación: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"🔥 Error crítico: {e}")
         return 1
 
 

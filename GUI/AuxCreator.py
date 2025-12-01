@@ -194,9 +194,17 @@ class ModernMainWindow(QMainWindow):
         self.ai_api_url = "http://localhost:8000/analyze_solution"
         self.ai_thread = None
         self.ai_server_process = None
-        self.ai_server_started = False  # No iniciar automáticamente
 
-        # REMOVER esta línea: self.start_ai_server()
+        # --- CORRECCIÓN AQUÍ ---
+        # Verificamos si Gui.py ya encendió el servidor
+        if self.check_ai_server_running():
+            print("✅ AuxCreator detectó que el servidor IA ya está online")
+            self.ai_server_started = True
+        else:
+            print("⚠️ Servidor IA no detectado, se gestionará bajo demanda")
+            self.ai_server_started = False
+
+
 
         self.diagnose_database()
         self.initUI()
@@ -1477,55 +1485,50 @@ class ModernMainWindow(QMainWindow):
         super().closeEvent(event)
 
     def send_to_ai_feedback(self, detailed_result, user_code):
-        """Envía código a IA con validación de longitud"""
+        """Envía código a IA integrando el formateo directamente"""
         try:
             # Verificar longitud del código
             current_code = self.get_current_code()
             if len(current_code) > 2000:
-                self.ai_feedback.setPlainText(
-                    "📝 Código demasiado largo\n\n"
-                    "Tu código excede el límite recomendado para análisis.\n\n"
-                    "Sugerencias:\n"
-                    "• Divide el código en funciones más pequeñas\n"
-                    "• Envía solo la parte problemática\n"
-                    "• El análisis funciona mejor con código conciso\n\n"
-                    "Longitud actual: " + str(len(current_code)) + " caracteres\n"
-                                                                   "Límite recomendado: 2000 caracteres"
-                )
+                self.ai_feedback.setPlainText("📝 Código demasiado largo para análisis.")
                 return
 
             # Verificar si el servidor de IA está disponible
             if not self.ai_server_started:
-                self.ai_feedback.setPlainText("🔧 Iniciando servidor de IA...")
+                self.ai_feedback.setPlainText(" Iniciando servidor de IA...")
                 if not self.start_ai_server():
-                    self.ai_feedback.setPlainText("❌ No se pudo iniciar el servidor de IA")
+                    self.ai_feedback.setPlainText(" No se pudo iniciar el servidor de IA")
                     return
 
-            # Mensaje de carga con información de tiempo
-            self.ai_feedback.setPlainText(
-                "🔄 Analizando código...\n\n"
-                "Esto puede tomar hasta 45 segundos si es la primera vez.\n"
-                "Los modelos de IA necesitan tiempo para cargar.\n\n"
-                "⏳ Por favor espera..."
-            )
+            self.ai_feedback.setPlainText(" Analizando código con IA...")
 
-            # Obtener datos
+            # Obtener enunciado
             problem_statement = ""
             if hasattr(self, 'current_problem_data') and self.current_problem_data:
                 problem_statement = self.current_problem_data.get('statement', '')
 
-            # Formatear resultados
-            eval_results = self._format_eval_results_for_ai(detailed_result)
+            # --- CORRECCIÓN: FORMATEO INLINE (Sin llamar a la función vieja) ---
+            # Convertimos el diccionario de resultados a un texto claro para la IA
+            status = detailed_result.get('status', 'unknown')
+            passed = detailed_result.get('passed_count', 0)
+            total = detailed_result.get('total_tests', 0)
 
-            # Preparar datos para IA
-            ai_data = self._create_enhanced_ai_prompt(current_code, problem_statement, eval_results)
+            eval_results_str = f"Estado: {status}\nPruebas: {passed}/{total}\n"
 
-            print(f"🤖 Solicitando análisis de IA (código: {len(current_code)} caracteres)...")
+            if status == "compile_error":
+                eval_results_str += f"\nERROR COMPILACIÓN:\n{detailed_result.get('compilation_output', '')}"
+            elif status == "runtime_error":
+                eval_results_str += f"\nERROR EJECUCIÓN:\n{detailed_result.get('execution_output', '')}"
+            elif passed < total:
+                # Agregar detalles de pruebas fallidas
+                tests = detailed_result.get('tests', [])
+                failed = [t for t in tests if not t.get('passed', False)]
+                for f in failed[:2]:  # Solo las primeras 2 para no saturar
+                    eval_results_str += f"\nFallo en Test: Input={f.get('input')} -> Obtenido={f.get('obtained')}"
 
-            # Verificar servidor
-            if not self.check_ai_server_running():
-                self.ai_feedback.setPlainText("❌ Servidor de IA no disponible")
-                return
+            ai_data = self._create_enhanced_ai_prompt(current_code, problem_statement, eval_results_str)
+
+            print(f" Solicitando análisis de IA...")
 
             # Enviar a IA
             self.ai_thread = AIAnalysisThread(self.ai_api_url, ai_data)
@@ -1533,60 +1536,63 @@ class ModernMainWindow(QMainWindow):
             self.ai_thread.start()
 
         except Exception as e:
-            self.ai_feedback.setPlainText(f"❌ Error: {str(e)}")
+            self.ai_feedback.setPlainText(f" Error preparando datos IA: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
-    def _format_eval_results_for_ai(self, detailed_result):
-        """Formatea resultados para IA - ENVÍA EL ERROR CRUDO"""
-        status = detailed_result.get('status', 'unknown')
-        passed_count = detailed_result.get('passed_count', 0)
-        total_tests = detailed_result.get('total_tests', 0)
+    def send_to_ai_feedback_fast(self, detailed_result, user_code):
+        """Versión rápida para análisis de IA con formateo integrado"""
+        try:
+            if not self.check_ai_server_quick():
+                self.ai_feedback.setPlainText("🤖 Servidor IA no disponible para análisis rápido.")
+                return
 
-        # Obtener los textos crudos de C++
-        compilation_output = detailed_result.get('compilation_output', '')
-        execution_output = detailed_result.get('execution_output', '')
+            current_code = self.get_current_code()
+            self.ai_feedback.setPlainText("🔄 Analizando código (modo rápido)...")
 
-        # Cabecera básica
-        formatted_results = f"""
-    ESTADO: {status.upper()}
-    PRUEBAS: {passed_count}/{total_tests} pasadas
-    """
+            # Preparar datos
+            problem_statement = ""
+            if hasattr(self, 'current_problem_data') and self.current_problem_data:
+                problem_statement = self.current_problem_data.get('statement', '')
 
-        # Lógica mejorada: Enviar el error literal
-        if status == "compile_error" or status == "compilation_error":
-            # Enviamos el log completo de GCC a la IA
-            formatted_results += "\n--- ERROR DE COMPILACIÓN (RAW) ---\n"
-            formatted_results += compilation_output
+            # --- CORRECCIÓN: FORMATEO INLINE ---
+            status = detailed_result.get('status', 'unknown')
+            eval_results_str = f"Estado: {status}\n"
+            if status == "compile_error":
+                eval_results_str += f"Error: {detailed_result.get('compilation_output', '')}"
+            elif status == "runtime_error":
+                eval_results_str += f"Error: {detailed_result.get('execution_output', '')}"
+            # -----------------------------------
 
-        elif status == "runtime_error":
-            # Enviamos el error de ejecución (ej: Segmentation Fault o Excepción C++)
-            formatted_results += "\n--- ERROR DE EJECUCIÓN (RAW) ---\n"
-            # Si el summary tiene el error específico (capturado por catch), usarlo
-            summary = detailed_result.get('summary', '')
-            if "ERROR_RUNTIME" in summary:
-                formatted_results += summary
-            else:
-                formatted_results += execution_output
+            # Usamos la estructura nueva directamente
+            ai_data = {
+                "codigo_usuario": current_code,
+                "resultados_evaluacion": eval_results_str,
+                "problema_enunciado": problem_statement,
+                "lenguaje": "C++",
+                "instrucciones_especificas": "Análisis rápido: Identifica el error principal brevemente."
+            }
 
-        elif status == "time_limit_exceeded":
-            formatted_results += "\n--- ERROR: TIME LIMIT EXCEEDED ---\n"
-            formatted_results += execution_output
+            # Enviar con timeout corto
+            try:
+                response = requests.post(
+                    "http://localhost:8000/analyze_solution",
+                    json=ai_data,
+                    timeout=10
+                )
 
-        elif passed_count < total_tests:
-            # Si compiló y corrió pero falló la lógica
-            tests = detailed_result.get('tests', [])
-            failed_tests = [test for test in tests if not test.get('passed', False)]
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get('status') == 'success':
+                        self.ai_feedback.setPlainText(result.get('feedback_completo', 'Análisis completado'))
+                else:
+                    self.ai_feedback.setPlainText("🔌 Error conectando con IA")
 
-            if failed_tests:
-                formatted_results += f"\nPRUEBAS FALLIDAS: {len(failed_tests)}\n"
-                for i, test in enumerate(failed_tests[:3]):  # Mandar primeros 3 fallos
-                    input_val = test.get('input', 'N/A')
-                    obtained = test.get('obtained', 'N/A')
-                    # expected no siempre viene en el detalle del test en runner.cpp,
-                    # pero la IA puede deducirlo si se le da el enunciado.
-                    formatted_results += f"Test: Input={input_val} -> Obtenido={obtained}\n"
+            except Exception:
+                self.ai_feedback.setPlainText("⏰ Timeout o error de conexión")
 
-        return formatted_results
-
+        except Exception as e:
+            self.ai_feedback.setPlainText(f"💥 Error: {str(e)}")
 
     def handle_ai_response(self, response):
         """Maneja la respuesta de la IA de manera simple"""
@@ -1716,70 +1722,6 @@ class ModernMainWindow(QMainWindow):
             return response.status_code == 200
         except:
             return False
-
-    def send_to_ai_feedback_fast(self, detailed_result, user_code):
-        """Versión rápida para análisis de IA"""
-        try:
-            # Verificar servidor primero
-            if not self.check_ai_server_quick():
-                self.ai_feedback.setPlainText(
-                    "🤖 Servidor de IA no disponible\n\n"
-                    "Usando análisis rápido local...\n\n"
-                    "💡 Para análisis avanzado:\n"
-                    "1. Espera 1 minuto tras iniciar la app\n"
-                    "2. O reinicia la aplicación\n"
-                    "3. El servidor carga automáticamente"
-                )
-                return
-
-            # Análisis rápido si el servidor está disponible
-            current_code = self.get_current_code()
-
-            if len(current_code) > 2000:
-                self.ai_feedback.setPlainText("📝 Código muy largo para análisis rápido")
-                return
-
-            # Mostrar mensaje de carga
-            self.ai_feedback.setPlainText("🔄 Analizando código (modo rápido)...")
-
-            # Preparar datos
-            problem_statement = ""
-            if hasattr(self, 'current_problem_data') and self.current_problem_data:
-                problem_statement = self.current_problem_data.get('statement', '')
-
-            eval_results = self._format_eval_results_for_ai(detailed_result)
-
-            ai_data = {
-                "codigo_usuario": current_code,
-                "resultados_evaluacion": eval_results,
-                "problema_enunciado": problem_statement,
-                "lenguaje": "C++"
-            }
-
-            # Enviar con timeout corto
-            try:
-                response = requests.post(
-                    "http://localhost:8000/analyze_solution",
-                    json=ai_data,
-                    timeout=10  # Timeout corto
-                )
-
-                if response.status_code == 200:
-                    result = response.json()
-                    if result.get('status') == 'success':
-                        self.ai_feedback.setPlainText(result.get('feedback_completo', 'Análisis completado'))
-                    else:
-                        self.ai_feedback.setPlainText("❌ Error en análisis de IA")
-                else:
-                    self.ai_feedback.setPlainText("🔌 Error conectando con IA")
-
-            except requests.exceptions.Timeout:
-                self.ai_feedback.setPlainText("⏰ Timeout - Servidor ocupado\n\nIntenta en 30 segundos")
-            except Exception as e:
-                self.ai_feedback.setPlainText(f"🔌 Error de conexión: {str(e)}")
-
-        except Exception as e:
-            self.ai_feedback.setPlainText(f"💥 Error: {str(e)}")
 
     def create_payload_with_real_data(self, codigo_cpp: str, user_name: str):
         """Crea el payload usando los datos REALES del problema actual desde MongoDB"""
