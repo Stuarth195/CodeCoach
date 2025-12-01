@@ -8,9 +8,11 @@
 using namespace std;
 
 // --- User Code ---
-bool Igual_A_Dos(int n) {
-    
-    return n ==2 
+bool Es_Uno(int x)
+{
+for 
+
+return 1 == x
 }
 // -----------------
 
@@ -70,7 +72,7 @@ int main() {
     // Test 1: 1
     try {
         int input_val = 1;
-        bool result = IgualUno(input_val);
+        bool result = Es_Uno(input_val);
         cout << (result ? "1" : "0") << endl;
     } catch(const exception& e) { 
         cout << "ERROR_RUNTIME: " << e.what() << endl; 
@@ -78,10 +80,10 @@ int main() {
         cout << "ERROR_RUNTIME_UNKNOWN" << endl; 
     }
     
-    // Test 2: 2
+    // Test 2: 12
     try {
-        int input_val = 2;
-        bool result = IgualUno(input_val);
+        int input_val = 12;
+        bool result = Es_Uno(input_val);
         cout << (result ? "1" : "0") << endl;
     } catch(const exception& e) { 
         cout << "ERROR_RUNTIME: " << e.what() << endl; 
@@ -89,10 +91,10 @@ int main() {
         cout << "ERROR_RUNTIME_UNKNOWN" << endl; 
     }
     
-    // Test 3: 3
+    // Test 3: 1213
     try {
-        int input_val = 3;
-        bool result = IgualUno(input_val);
+        int input_val = 1213;
+        bool result = Es_Uno(input_val);
         cout << (result ? "1" : "0") << endl;
     } catch(const exception& e) { 
         cout << "ERROR_RUNTIME: " << e.what() << endl; 

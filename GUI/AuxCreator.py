@@ -1536,53 +1536,57 @@ class ModernMainWindow(QMainWindow):
             self.ai_feedback.setPlainText(f"❌ Error: {str(e)}")
 
     def _format_eval_results_for_ai(self, detailed_result):
-        """Formatea resultados para IA - ENFOCADO EN ERRORES"""
+        """Formatea resultados para IA - ENVÍA EL ERROR CRUDO"""
         status = detailed_result.get('status', 'unknown')
-        summary = detailed_result.get('summary', 'No summary')
         passed_count = detailed_result.get('passed_count', 0)
         total_tests = detailed_result.get('total_tests', 0)
-        problem_solved = detailed_result.get('problem_solved', False)
 
-        # Información básica
+        # Obtener los textos crudos de C++
+        compilation_output = detailed_result.get('compilation_output', '')
+        execution_output = detailed_result.get('execution_output', '')
+
+        # Cabecera básica
         formatted_results = f"""
     ESTADO: {status.upper()}
     PRUEBAS: {passed_count}/{total_tests} pasadas
-    PROBLEMA RESUELTO: {'SÍ' if problem_solved else 'NO'}
     """
 
-        # Solo agregar detalles específicos de errores
-        if status == "compile_error":
-            compilation_output = detailed_result.get('compilation_output', '')
-            # Extraer primeras líneas de error
-            error_lines = []
-            for line in compilation_output.split('\n'):
-                if 'error' in line.lower():
-                    error_lines.append(line.strip())
-                    if len(error_lines) >= 2:  # Máximo 2 líneas de error
-                        break
-
-            if error_lines:
-                formatted_results += "\nERRORES DE COMPILACIÓN:\n"
-                for error in error_lines[:2]:
-                    formatted_results += f"- {error}\n"
+        # Lógica mejorada: Enviar el error literal
+        if status == "compile_error" or status == "compilation_error":
+            # Enviamos el log completo de GCC a la IA
+            formatted_results += "\n--- ERROR DE COMPILACIÓN (RAW) ---\n"
+            formatted_results += compilation_output
 
         elif status == "runtime_error":
-            formatted_results += "\nERROR EN EJECUCIÓN: Timeout o crash\n"
+            # Enviamos el error de ejecución (ej: Segmentation Fault o Excepción C++)
+            formatted_results += "\n--- ERROR DE EJECUCIÓN (RAW) ---\n"
+            # Si el summary tiene el error específico (capturado por catch), usarlo
+            summary = detailed_result.get('summary', '')
+            if "ERROR_RUNTIME" in summary:
+                formatted_results += summary
+            else:
+                formatted_results += execution_output
 
-        elif not problem_solved and passed_count < total_tests:
-            # Mostrar algunos tests fallidos
+        elif status == "time_limit_exceeded":
+            formatted_results += "\n--- ERROR: TIME LIMIT EXCEEDED ---\n"
+            formatted_results += execution_output
+
+        elif passed_count < total_tests:
+            # Si compiló y corrió pero falló la lógica
             tests = detailed_result.get('tests', [])
             failed_tests = [test for test in tests if not test.get('passed', False)]
 
             if failed_tests:
                 formatted_results += f"\nPRUEBAS FALLIDAS: {len(failed_tests)}\n"
-                for i, test in enumerate(failed_tests[:2]):  # Máximo 2 tests
+                for i, test in enumerate(failed_tests[:3]):  # Mandar primeros 3 fallos
                     input_val = test.get('input', 'N/A')
                     obtained = test.get('obtained', 'N/A')
-                    expected = test.get('expected', 'N/A')
-                    formatted_results += f"Test {i + 1}: Input={input_val}, Esperado={expected}, Obtenido={obtained}\n"
+                    # expected no siempre viene en el detalle del test en runner.cpp,
+                    # pero la IA puede deducirlo si se le da el enunciado.
+                    formatted_results += f"Test: Input={input_val} -> Obtenido={obtained}\n"
 
         return formatted_results
+
 
     def handle_ai_response(self, response):
         """Maneja la respuesta de la IA de manera simple"""

@@ -261,7 +261,6 @@ namespace runner
     // ==========================================
     // SECCIÓN 3: PROCESO PRINCIPAL (CORREGIDO)
     // ==========================================
-
     EvaluationResult evaluate_submission_detailed(const std::string &jsonContent, const std::string &gpp_exe)
     {
         EvaluationResult result;
@@ -312,32 +311,34 @@ namespace runner
             out << full_code;
         }
 
-        // 3. Ejecución Docker (Con Timeout y Sanitización)
+        // 3. Ejecucion Docker
         std::string abs_path = fs::absolute(temp_dir).string();
         std::string docker_path = sanitizePathForDocker(abs_path);
 
-        // Comando CORREGIDO: quitamos el "-t" del timeout
+        // Comando Docker con timeout corregido (sin -t) y redireccion de errores (2>&1)
         std::string docker_cmd = "docker run --rm --network none --memory=\"128m\" --cpus=\"0.5\" ";
         docker_cmd += "-v \"" + docker_path + ":/app\" ";
         docker_cmd += "-w /app ";
         docker_cmd += "frolvlad/alpine-gxx ";
-        // AQUÍ ESTÁ EL CAMBIO: "timeout 3" en lugar de "timeout -t 3"
         docker_cmd += "sh -c \"g++ -static -O2 solution.cpp -o prog 2>&1 && timeout 3 ./prog 2>&1\"";
 
-        std::cout << "🐳 Docker Sandbox: " << docker_cmd << std::endl;
+        std::cout << "Docker Sandbox: " << docker_cmd << std::endl;
 
         auto start_time = high_resolution_clock::now();
         std::string runOutput = exec_docker_cmd(docker_cmd.c_str());
         auto end_time = high_resolution_clock::now();
         result.execution_time = duration_cast<milliseconds>(end_time - start_time);
 
-        // 4. Análisis de Errores
+        // 4. Analisis de Errores (Deteccion de texto crudo)
+
+        // Error de compilacion detectado por palabras clave de GCC
         if (runOutput.find("error:") != std::string::npos ||
             runOutput.find("g++: error") != std::string::npos ||
             runOutput.find("fatal error:") != std::string::npos ||
             runOutput.find("No such file") != std::string::npos)
         {
             result.status = "compilation_error";
+            // Guardamos el mensaje EXACTO de GCC para que la IA lo lea
             result.compilation_output = runOutput;
             result.score = 0;
             result.problem_solved = false;
@@ -346,19 +347,20 @@ namespace runner
             return result;
         }
 
+        // Error de tiempo (Timeout)
         if (runOutput.find("Terminated") != std::string::npos ||
             runOutput.find("command terminated") != std::string::npos)
         {
             result.status = "time_limit_exceeded";
-            result.summary = "Tiempo límite excedido (TLE).";
+            result.summary = "Tiempo limite excedido.";
             result.execution_output = runOutput;
             result.score = 0;
             result.problem_solved = false;
             return result;
         }
 
-        // Ejecución normal
-        result.compilation_output = "Compilación exitosa (Container)";
+        // Ejecucion completada (analisis de salida)
+        result.compilation_output = "Compilacion exitosa";
         result.execution_output = runOutput;
 
         std::vector<std::string> lines;
@@ -369,7 +371,6 @@ namespace runner
             lines.push_back(cleanString(line));
         }
 
-        json tests_result = json::array();
         int passed_count = 0;
         int total_tests = req.tests.size();
 
@@ -379,10 +380,11 @@ namespace runner
             std::string obtained = (i < lines.size()) ? lines[i] : "Sin salida / Error";
             std::string input_display = req.tests[i].first;
 
+            // Deteccion de excepciones C++ capturadas por el try/catch generado
             if (obtained.find("ERROR_RUNTIME") != std::string::npos)
             {
                 result.status = "runtime_error";
-                result.summary = obtained;
+                result.summary = obtained; // Contiene el mensaje de la excepcion (what)
             }
 
             bool passed = OutputNormalizer::compare(expected, obtained, req.function_type);
