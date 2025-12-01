@@ -1,19 +1,13 @@
-// runner.h
+// runner.h - DEFINICIONES
 #pragma once
-
-// runner.h
-// Lógica de compilación y ejecución para Windows (MinGW).
-// Se integra con el formato JSON del proyecto CodeCoach.
 
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <chrono>
 
 namespace runner
 {
-    // ... (estructuras existentes)
-
-    // Estructuras de datos para resultados internos
     struct TestResult
     {
         std::string id;
@@ -51,26 +45,19 @@ namespace runner
     struct EvalRequest
     {
         std::string submission_id;
-        std::string user_code;                // Codigo del usuario (solo la funcion)
-        std::string function_name;            // Nombre de la funcion a llamar (ej: "esPalindromo")
-        std::string function_type = "string"; // ✅ NUEVO: Tipo de la función (valor por defecto: string)
-        std::string filename;                 // Por defecto main.cpp
+        std::string user_code;                
+        std::string function_name;            
+        std::string function_type = "string"; 
+        std::string filename;                 
 
         int compile_timeout_s = 10;
         int run_timeout_s = 2;
 
-        // Vector de pares (input_arg_code, expected_stdout)
-        // Nota: input_arg_code se inyectará tal cual en el código C++.
-        // Si es string debe venir con comillas desde el JSON o manejarse aqui.
         std::vector<std::pair<std::string, std::string>> tests;
     };
 
-    // ✅ AGREGAR DECLARACIÓN DE generate_full_source
     std::string generate_full_source(const EvalRequest &req);
-
-    // Funciones principales
     EvaluationResult evaluate_submission_detailed(const std::string &jsonContent, const std::string &gpp_exe = "g++");
-    std::string evaluation_result_to_json(const EvaluationResult &result);
-    std::string evaluate_submission(const std::string &jsonContent, const std::string &gpp_exe = "g++");
-
-} // namespace runner
+    std::string evaluate_submission(const std::string &jsonContent);
+    std::string evaluation_result_to_json(const EvaluationResult &res);
+}
